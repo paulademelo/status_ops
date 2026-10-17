@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:status_ops/theme.dart';
+import 'package:status_ops/ui/core/theme.dart';
 
 class TopBar extends StatelessWidget {
   const TopBar({super.key});

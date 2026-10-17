@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:status_ops/theme.dart';
+import 'package:status_ops/ui/core/theme.dart';
 
 /// Card escuro com borda colorida e brilho suave, base de todo o painel.
 class GlowCard extends StatelessWidget {

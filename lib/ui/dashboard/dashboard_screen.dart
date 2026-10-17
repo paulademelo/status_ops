@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 
-import 'package:status_ops/build_info.dart';
 import 'package:status_ops/config.dart';
-import 'package:status_ops/theme.dart';
-import 'package:status_ops/widgets/commit_history_panel.dart';
-import 'package:status_ops/widgets/metric_card.dart';
-import 'package:status_ops/widgets/pipeline_panel.dart';
-import 'package:status_ops/widgets/status_banner.dart';
-import 'package:status_ops/widgets/top_bar.dart';
+import 'package:status_ops/ui/core/formatters.dart';
+import 'package:status_ops/ui/core/theme.dart';
+import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
+import 'package:status_ops/ui/dashboard/widgets/metric_card.dart';
+import 'package:status_ops/ui/dashboard/widgets/pipeline_panel.dart';
+import 'package:status_ops/ui/dashboard/widgets/recent_runs_panel.dart';
+import 'package:status_ops/ui/dashboard/widgets/status_banner.dart';
+import 'package:status_ops/ui/dashboard/widgets/top_bar.dart';
 
 const double _gap = 20;
 
+/// Tela do painel. Não guarda estado nem regras: só desenha o que o
+/// [DashboardViewModel] expõe e se redesenha quando ele avisa que mudou.
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key, required this.buildInfo});
+  const DashboardScreen({super.key, required this.viewModel});
 
-  final BuildInfo buildInfo;
+  final DashboardViewModel viewModel;
 
   /// A partir desta largura os cards ficam lado a lado.
   static const double wideBreakpoint = 900;
@@ -35,36 +38,15 @@ class DashboardScreen extends StatelessWidget {
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1100),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isWide = constraints.maxWidth >= wideBreakpoint;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const _Header(),
-                            const SizedBox(height: 24),
-                            StatusBanner(buildInfo: buildInfo),
-                            const SizedBox(height: _gap),
-                            _ResponsiveRow(
-                              isWide: isWide,
-                              children: _metricCards(),
-                            ),
-                            const SizedBox(height: _gap),
-                            _ResponsiveRow(
-                              isWide: isWide,
-                              flexes: const [2, 3],
-                              children: [
-                                PipelinePanel(buildInfo: buildInfo),
-                                CommitHistoryPanel(
-                                  commits: buildInfo.recentCommits,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 32),
-                            _Footer(buildInfo: buildInfo),
-                          ],
-                        );
-                      },
+                    // ListenableBuilder reconstrói o conteúdo a cada
+                    // notifyListeners() do ViewModel.
+                    child: ListenableBuilder(
+                      listenable: viewModel,
+                      builder: (context, _) => LayoutBuilder(
+                        builder: (context, constraints) => _buildContent(
+                          isWide: constraints.maxWidth >= wideBreakpoint,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -76,31 +58,66 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildContent({required bool isWide}) {
+    final buildInfo = viewModel.buildInfo;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _Header(),
+        const SizedBox(height: 24),
+        StatusBanner(viewModel: viewModel),
+        const SizedBox(height: _gap),
+        _ResponsiveRow(isWide: isWide, children: _metricCards()),
+        const SizedBox(height: _gap),
+        _ResponsiveRow(
+          isWide: isWide,
+          flexes: const [2, 3],
+          children: [
+            PipelinePanel(buildInfo: buildInfo),
+            RecentRunsPanel(viewModel: viewModel),
+          ],
+        ),
+        const SizedBox(height: 32),
+        _Footer(runNumber: buildInfo.runNumber, commitSha: buildInfo.commitSha),
+      ],
+    );
+  }
+
   List<Widget> _metricCards() {
-    final info = buildInfo;
-    final fromPipeline = info.isFromPipeline;
+    final info = viewModel.buildInfo;
     final hasTests = info.hasTestResults;
+    final successRate = viewModel.successRate;
+    final averageDuration = viewModel.averageDuration;
 
     return [
       MetricCard(
-        title: 'Status da Build',
-        icon: Icons.rocket_launch_outlined,
+        title: 'Saúde do Pipeline',
+        icon: Icons.monitor_heart_outlined,
         color: AppColors.cyan,
         values: [
           MetricValue(
-            value: fromPipeline ? 'Sucesso' : 'Local',
-            label: 'Resultado',
-            color: fromPipeline ? AppColors.green : AppColors.orange,
+            value: successRate == null
+                ? '—'
+                : '${(successRate * 100).round()}%',
+            label: 'Sucesso',
+            color: _successColor(successRate),
           ),
           MetricValue(
-            value: fromPipeline ? '#${info.runNumber}' : '—',
-            label: 'Execução',
+            value: averageDuration == null
+                ? '—'
+                : formatDuration(averageDuration),
+            label: 'Duração média',
+            color: AppColors.textPrimary,
+          ),
+          MetricValue(
+            value: viewModel.hasLoaded ? '${viewModel.runs.length}' : '—',
+            label: 'Execuções',
             color: AppColors.textPrimary,
           ),
         ],
-        footer: fromPipeline
-            ? 'Publicado pelo GitHub Actions'
-            : 'Rodando fora do pipeline',
+        footer: viewModel.hasLoaded
+            ? 'Ao vivo · últimas execuções na main'
+            : 'Aguardando dados da API do GitHub',
       ),
       MetricCard(
         title: 'Testes Automatizados',
@@ -124,7 +141,9 @@ class DashboardScreen extends StatelessWidget {
                 : AppColors.textMuted,
           ),
         ],
-        footer: 'Se algum teste falhar, o deploy é cancelado',
+        footer: info.isFromPipeline
+            ? 'Se algum teste falhar, o deploy é cancelado'
+            : 'Rodando fora do pipeline',
       ),
       MetricCard(
         title: 'Versão da Aplicação',
@@ -140,6 +159,14 @@ class DashboardScreen extends StatelessWidget {
         footer: 'Último deploy: ${info.buildDate}',
       ),
     ];
+  }
+
+  /// Verde acima de 80%, laranja abaixo.
+  static Color _successColor(double? rate) {
+    if (rate == null) {
+      return AppColors.textMuted;
+    }
+    return rate >= 0.8 ? AppColors.green : AppColors.orange;
   }
 }
 
@@ -209,9 +236,10 @@ class _ResponsiveRow extends StatelessWidget {
 }
 
 class _Footer extends StatelessWidget {
-  const _Footer({required this.buildInfo});
+  const _Footer({required this.runNumber, required this.commitSha});
 
-  final BuildInfo buildInfo;
+  final String runNumber;
+  final String commitSha;
 
   @override
   Widget build(BuildContext context) {
@@ -230,10 +258,7 @@ class _Footer extends StatelessWidget {
               'Flutter StatusOps · laboratório de CI/CD',
               style: style,
             ),
-            Text(
-              'build ${buildInfo.runNumber} · commit ${buildInfo.commitSha}',
-              style: style,
-            ),
+            Text('build $runNumber · commit $commitSha', style: style),
           ],
         ),
       ],

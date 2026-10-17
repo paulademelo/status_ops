@@ -41,19 +41,48 @@ git log + jq  →  build_info.json  →  flutter build web --dart-define-from-fi
 
 No código, `lib/build_info.dart` lê esses valores com `String.fromEnvironment`. Rodando localmente (sem o arquivo), o painel mostra "Rodando fora do pipeline".
 
+## 📡 Dados ao vivo
+
+Além dos dados "congelados" no build, o painel consulta a API pública do GitHub enquanto está aberto (`GET /repos/{dono}/{repo}/actions/runs`):
+
+- lista as últimas execuções da `main` e marca a que publicou a página aberta (**no ar**);
+- calcula a taxa de sucesso e a duração média do pipeline;
+- mostra **"Deploy em andamento"** quando há uma execução rodando e **"Nova versão publicada"** quando um deploy mais novo termina;
+- atualiza sozinho: a cada 2 min, a cada 30 s durante um deploy e respeita o limite de 60 requisições/hora da API sem token.
+
+> A consulta é feita **sem token** de propósito: tudo que vai num build web é público. Por isso o repositório precisa ser público.
+
+## 🏛️ Arquitetura (MVVM)
+
+```
+PipelineRepository (dados)  →  DashboardViewModel (estado + regras)  →  DashboardScreen (UI)
+```
+
+- **Repositório:** só busca e converte os dados da API. Nos testes é trocado por um fake.
+- **ViewModel (`ChangeNotifier`):** guarda o estado (carregando, erro, execuções), agenda as atualizações e concentra as regras de negócio.
+- **Tela:** só desenha o que o ViewModel expõe, usando `ListenableBuilder`.
+
 ## 📁 Estrutura
 
 ```
 lib/
-├── main.dart                 # entrada do app
-├── config.dart               # 💡 valores para alterar durante a aula
-├── build_info.dart           # metadados injetados pelo pipeline
-├── dashboard_screen.dart     # layout responsivo do painel
-├── theme.dart                # cores e tema escuro
-└── widgets/                  # cards, banner, pipeline, histórico
+├── main.dart                         # monta repositório → ViewModel → tela
+├── config.dart                       # 💡 valores para alterar durante a aula
+├── data/
+│   ├── build_info.dart               # metadados injetados pelo pipeline
+│   ├── models/workflow_run.dart      # execução do GitHub Actions
+│   └── pipeline_repository.dart      # acesso à API do GitHub
+└── ui/
+    ├── core/                         # tema e formatadores
+    └── dashboard/
+        ├── dashboard_view_model.dart # estado e regras
+        ├── dashboard_screen.dart     # layout responsivo
+        └── widgets/                  # cards, banner, pipeline, execuções
 test/
-└── widget_test.dart          # testes de unidade e de widget
-.github/workflows/ci_cd.yml   # a esteira de CI/CD
+├── fakes/                            # repositório falso + execuções de exemplo
+├── data/                             # modelo e repositório (MockClient)
+└── ui/                               # ViewModel e widgets
+.github/workflows/ci_cd.yml           # a esteira de CI/CD
 ```
 
 ## ▶️ Rodando localmente

@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
 
-import 'package:status_ops/build_info.dart';
-import 'package:status_ops/dashboard_screen.dart';
-import 'package:status_ops/theme.dart';
+import 'package:status_ops/config.dart';
+import 'package:status_ops/data/build_info.dart';
+import 'package:status_ops/data/pipeline_repository.dart';
+import 'package:status_ops/ui/core/theme.dart';
+import 'package:status_ops/ui/dashboard/dashboard_screen.dart';
+import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
 
 void main() {
-  // No CI os metadados chegam via --dart-define-from-file=build_info.json.
-  // Rodando localmente (flutter run), os valores padrão são usados.
-  runApp(StatusOpsApp(buildInfo: BuildInfo.fromEnvironment()));
+  // Monta as dependências uma vez, de fora para dentro:
+  // repositório (dados) → ViewModel (regras) → tela (UI).
+  final viewModel = DashboardViewModel(
+    repository: GitHubPipelineRepository(repository: githubRepository),
+    // No CI os metadados chegam via --dart-define-from-file=build_info.json.
+    buildInfo: BuildInfo.fromEnvironment(),
+  )..start();
+
+  runApp(StatusOpsApp(viewModel: viewModel));
 }
 
 class StatusOpsApp extends StatelessWidget {
-  const StatusOpsApp({super.key, this.buildInfo = const BuildInfo()});
+  const StatusOpsApp({super.key, required this.viewModel});
 
-  final BuildInfo buildInfo;
+  final DashboardViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +30,7 @@ class StatusOpsApp extends StatelessWidget {
       title: 'Flutter StatusOps',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: DashboardScreen(buildInfo: buildInfo),
+      home: DashboardScreen(viewModel: viewModel),
     );
   }
 }

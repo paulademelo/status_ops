@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:status_ops/build_info.dart';
-import 'package:status_ops/theme.dart';
-import 'package:status_ops/widgets/glow_card.dart';
+import 'package:status_ops/data/build_info.dart';
+import 'package:status_ops/ui/core/theme.dart';
+import 'package:status_ops/ui/dashboard/widgets/glow_card.dart';
 
 /// Uma etapa do workflow `.github/workflows/ci_cd.yml`.
 class PipelineStage {
