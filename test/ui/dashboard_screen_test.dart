@@ -198,7 +198,7 @@ void _execucoesAoVivoTests() {
     ]);
   });
 
-  testWidgets('mostra a tendência das execuções', (tester) async {
+  testWidgets('mostra as tendências das execuções', (tester) async {
     await pumpDashboard(
       tester,
       repository: FakePipelineRepository(
