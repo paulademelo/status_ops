@@ -40,7 +40,11 @@ jobs:
         run: flutter pub get
 
       - name: 🎨 Verificar formatação
-        run: dart format --output=none --set-exit-if-changed .
+        run: |
+          dart --version
+          dart format .
+          # Se o formatador mudou algo, mostra o diff no log e falha o job.
+          git diff --exit-code
 
       - name: 🔍 Análise estática
         run: flutter analyze
