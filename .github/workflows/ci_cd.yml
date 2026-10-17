@@ -5,138 +5,67 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
-# Evita dois deploys simultâneos no GitHub Pages.
-concurrency:
-  group: pages-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  # ---------------------------------------------------------------------------
-  # CI: roda em todo push e pull request. Se algo falhar aqui, nada é publicado.
-  # ---------------------------------------------------------------------------
   test:
-    name: 🧪 CI - Qualidade e testes
+    name: 🧪 Testes
     runs-on: ubuntu-latest
     outputs:
-      passed: ${{ steps.report.outputs.passed }}
-      total: ${{ steps.report.outputs.total }}
+      passed: ${{ steps.tests.outputs.passed }}
+      total: ${{ steps.tests.outputs.total }}
     steps:
-      - name: 📥 Checkout do código
-        uses: actions/checkout@v5
-
-      - name: 🐦 Instalar Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
         with:
-          channel: stable
-          flutter-version: 3.44.9 # mesma versão do seu Mac (flutter --version)
+          flutter-version: 3.44.9
           cache: true
-
-      - name: 📦 Baixar dependências
-        run: flutter pub get
-
-      - name: 🎨 Verificar formatação
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: flutter analyze
+      - name: flutter test
+        id: tests
         run: |
-          dart --version
-          dart format .
-          # Se o formatador mudou algo, mostra o diff no log e falha o job.
-          git diff --exit-code
+          flutter test --file-reporter json:report.json
+          echo "passed=$(jq -s '[.[] | select(.type=="testDone" and .hidden==false and .result=="success")] | length' report.json)" >> "$GITHUB_OUTPUT"
+          echo "total=$(jq -s '[.[] | select(.type=="testDone" and .hidden==false)] | length' report.json)" >> "$GITHUB_OUTPUT"
 
-      - name: 🔍 Análise estática
-        run: flutter analyze
-
-      - name: 🧪 Rodar testes
-        run: flutter test --file-reporter json:test-report.json
-
-      - name: 📊 Resumo dos testes
-        id: report
-        run: |
-          PASSED=$(jq -s '[.[] | select(.type == "testDone" and .hidden == false and .result == "success")] | length' test-report.json)
-          TOTAL=$(jq -s '[.[] | select(.type == "testDone" and .hidden == false)] | length' test-report.json)
-          echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
-          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
-          echo "### 🧪 Testes: $PASSED/$TOTAL passando" >> "$GITHUB_STEP_SUMMARY"
-
-  # ---------------------------------------------------------------------------
-  # CD (parte 1): build de produção. Só roda em push na main com o CI verde.
-  # ---------------------------------------------------------------------------
   build:
-    name: 🏗️ Build web
+    name: 🏗️ Build
     needs: test
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    env:
-      TZ: America/Sao_Paulo
     steps:
-      - name: 📥 Checkout do código
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
         with:
-          fetch-depth: 10 # precisamos dos últimos commits para o histórico
-
-      - name: 🐦 Instalar Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: 3.44.9 # mesma versão do seu Mac (flutter --version)
+          flutter-version: 3.44.9
           cache: true
-
-      - name: 📦 Baixar dependências
-        run: flutter pub get
-
-      - name: ⚙️ Configurar GitHub Pages
-        id: pages
+      - id: pages
         uses: actions/configure-pages@v5
-
-      - name: 🧾 Gerar build_info.json
+      - name: flutter build web
         env:
+          TZ: America/Sao_Paulo
           TESTS_PASSED: ${{ needs.test.outputs.passed }}
           TESTS_TOTAL: ${{ needs.test.outputs.total }}
         run: |
-          COMMITS=$(git log -5 --date=format-local:'%d/%m/%Y %H:%M' --pretty=format:'%h%x1f%s%x1f%an%x1f%ad' \
-            | jq -R -s -c 'split("\n") | map(select(length > 0) | split("\u001f") | {sha: .[0], message: .[1], author: .[2], date: .[3]})')
-
-          jq -n \
-            --arg sha "$(git rev-parse --short=7 HEAD)" \
-            --arg message "$(git log -1 --pretty=%s)" \
-            --arg author "$(git log -1 --pretty=%an)" \
-            --arg run "$GITHUB_RUN_NUMBER" \
-            --arg date "$(date '+%d/%m/%Y %H:%M')" \
-            --arg passed "$TESTS_PASSED" \
-            --arg total "$TESTS_TOTAL" \
-            --arg commits "$COMMITS" \
-            '{
-              COMMIT_SHA: $sha,
-              COMMIT_MESSAGE: $message,
-              COMMIT_AUTHOR: $author,
-              RUN_NUMBER: $run,
-              BUILD_DATE: $date,
-              TESTS_PASSED: $passed,
-              TESTS_TOTAL: $total,
-              RECENT_COMMITS: $commits
-            }' > build_info.json
-
-          cat build_info.json
-
-      - name: 🏗️ flutter build web
-        run: >
-          flutter build web --release
-          --base-href "${{ steps.pages.outputs.base_path }}/"
-          --dart-define-from-file=build_info.json
-
-      - name: 📤 Enviar artefato para o Pages
-        uses: actions/upload-pages-artifact@v4
+          flutter build web --release \
+            --base-href "${{ steps.pages.outputs.base_path }}/" \
+            --dart-define=COMMIT_SHA="$(git rev-parse --short HEAD)" \
+            --dart-define=COMMIT_MESSAGE="$(git log -1 --pretty=%s)" \
+            --dart-define=COMMIT_AUTHOR="$(git log -1 --pretty=%an)" \
+            --dart-define=RUN_NUMBER="$GITHUB_RUN_NUMBER" \
+            --dart-define=BUILD_DATE="$(date '+%d/%m/%Y %H:%M')" \
+            --dart-define=TESTS_PASSED="$TESTS_PASSED" \
+            --dart-define=TESTS_TOTAL="$TESTS_TOTAL"
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: build/web
 
-  # ---------------------------------------------------------------------------
-  # CD (parte 2): publica no GitHub Pages.
-  # ---------------------------------------------------------------------------
   deploy:
-    name: 🚀 Deploy GitHub Pages
+    name: 🚀 Deploy
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -146,6 +75,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: 🚀 Publicar
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v4
