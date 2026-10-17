@@ -22,7 +22,7 @@ enum PanelStatus {
 /// Função que recarrega a página (no navegador) ou não faz nada (testes).
 typedef PageReloader = Future<void> Function();
 
-Future<void> _doNothing() async {}
+Future<void> _doNothing() => Future.value();
 
 /// Estado e regras do painel.
 ///

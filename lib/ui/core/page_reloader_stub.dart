@@ -1,2 +1,2 @@
 /// Fora do navegador não existe página para recarregar.
-Future<void> reloadPage() async {}
+Future<void> reloadPage() => Future.value();
