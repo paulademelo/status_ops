@@ -24,6 +24,10 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _PauseWhenHidden(viewModel: viewModel, child: _buildScaffold());
+  }
+
+  Widget _buildScaffold() {
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -264,4 +268,38 @@ class _Footer extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Pausa as consultas quando a aba vai para segundo plano e retoma (já
+/// atualizando) quando ela volta. Economiza o limite da API.
+class _PauseWhenHidden extends StatefulWidget {
+  const _PauseWhenHidden({required this.viewModel, required this.child});
+
+  final DashboardViewModel viewModel;
+  final Widget child;
+
+  @override
+  State<_PauseWhenHidden> createState() => _PauseWhenHiddenState();
+}
+
+class _PauseWhenHiddenState extends State<_PauseWhenHidden> {
+  late final AppLifecycleListener _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    _listener = AppLifecycleListener(
+      onHide: widget.viewModel.pause,
+      onShow: widget.viewModel.resume,
+    );
+  }
+
+  @override
+  void dispose() {
+    _listener.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

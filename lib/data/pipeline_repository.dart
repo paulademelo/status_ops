@@ -2,10 +2,11 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:status_ops/data/models/runs_page.dart';
 import 'package:status_ops/data/models/workflow_run.dart';
 
 abstract interface class PipelineRepository {
-  Future<List<WorkflowRun>> fetchRecentRuns();
+  Future<RunsPage> fetchRecentRuns();
 }
 
 class PipelineException implements Exception {
@@ -41,10 +42,13 @@ class GitHubPipelineRepository implements PipelineRepository {
   final DateTime Function() _clock;
 
   @override
-  Future<List<WorkflowRun>> fetchRecentRuns() async {
+  Future<RunsPage> fetchRecentRuns() async {
     final uri = Uri.https('api.github.com', '/repos/$repository/actions/runs', {
       'branch': branch,
       'per_page': '$perPage',
+      // A API manda o navegador guardar a resposta por 60 s. Um valor
+      // diferente a cada chamada ("cache buster") garante dados frescos.
+      't': '${_clock().millisecondsSinceEpoch}',
     });
 
     final http.Response response;
@@ -58,7 +62,10 @@ class GitHubPipelineRepository implements PipelineRepository {
     }
 
     if (response.statusCode == 200) {
-      return _parseRuns(response.body);
+      return RunsPage(
+        runs: _parseRuns(response.body),
+        rateLimit: RateLimit.fromHeaders(response.headers),
+      );
     }
     if (_isRateLimited(response)) {
       throw RateLimitException(resetAt: _resetTime(response));

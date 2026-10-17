@@ -98,9 +98,17 @@ class StatusBanner extends StatelessWidget {
           icon: Icons.new_releases_outlined,
           color: AppColors.cyan,
           title: 'Nova versão publicada!',
-          message:
-              'O commit ${run.shortSha} já está no ar. Recarregue a '
-              'página para ver.',
+          message: viewModel.isReloadScheduled
+              ? 'O commit ${run.shortSha} já está no ar. Atualizando a '
+                    'página em instantes…'
+              : 'O commit ${run.shortSha} já está no ar. Recarregue a '
+                    'página para ver.',
+          action: TextButton.icon(
+            onPressed: viewModel.reloadNow,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Recarregar página'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.cyan),
+          ),
         ),
       ];
     }
@@ -115,12 +123,16 @@ class _Callout extends StatelessWidget {
     required this.color,
     required this.title,
     required this.message,
+    this.action,
   });
 
   final IconData icon;
   final Color color;
   final String title;
   final String message;
+
+  /// Botão opcional exibido abaixo da mensagem.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -157,6 +169,7 @@ class _Callout extends StatelessWidget {
                     color: AppColors.textPrimary,
                   ),
                 ),
+                if (action != null) ...[const SizedBox(height: 4), action!],
               ],
             ),
           ),

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:status_ops/config.dart';
 import 'package:status_ops/data/build_info.dart';
+import 'package:status_ops/data/models/runs_page.dart';
 import 'package:status_ops/data/pipeline_repository.dart';
 import 'package:status_ops/main.dart';
 import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
@@ -26,6 +27,7 @@ Future<DashboardViewModel> pumpDashboard(
   required FakePipelineRepository repository,
   BuildInfo buildInfo = pipelineBuild,
   Size size = const Size(1280, 1200),
+  PageReloader? reloadPage,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -35,6 +37,7 @@ Future<DashboardViewModel> pumpDashboard(
     repository: repository,
     buildInfo: buildInfo,
     clock: () => fixedNow,
+    reloadPage: reloadPage,
   );
   addTearDown(viewModel.dispose);
   await viewModel.load();
@@ -102,6 +105,41 @@ void main() {
     );
 
     expect(find.text('Nova versão publicada!'), findsOneWidget);
+  });
+
+  testWidgets('botão "Recarregar página" recarrega', (tester) async {
+    var reloads = 0;
+    await pumpDashboard(
+      tester,
+      repository: FakePipelineRepository(
+        runs: [
+          fakeRun(runNumber: 6, sha: 'def5678xxxx'),
+          fakeRun(runNumber: 5),
+        ],
+      ),
+      reloadPage: () async => reloads++,
+    );
+
+    await tester.tap(find.text('Recarregar página'));
+    await tester.pump();
+
+    expect(reloads, 1);
+  });
+
+  testWidgets('mostra o saldo de requisições da API', (tester) async {
+    await pumpDashboard(
+      tester,
+      repository: FakePipelineRepository(
+        runs: [fakeRun(runNumber: 5)],
+        rateLimit: RateLimit(
+          limit: 60,
+          remaining: 43,
+          resetAt: fixedNow.add(const Duration(minutes: 30)),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('43 de 60'), findsOneWidget);
   });
 
   testWidgets('mostra o erro da API sem quebrar a tela', (tester) async {

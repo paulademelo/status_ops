@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-
 import 'package:status_ops/data/build_info.dart';
+import 'package:status_ops/data/models/runs_page.dart';
 import 'package:status_ops/data/models/workflow_run.dart';
 import 'package:status_ops/data/pipeline_repository.dart';
 import 'package:status_ops/ui/core/formatters.dart';
@@ -19,40 +19,60 @@ enum PanelStatus {
   newVersionAvailable,
 }
 
+/// Função que recarrega a página (no navegador) ou não faz nada (testes).
+typedef PageReloader = Future<void> Function();
+
+Future<void> _doNothing() async {}
+
 /// Estado e regras do painel.
 ///
-/// A tela só lê os getters e chama [refresh]. Toda decisão (quando
+/// A tela só lê os getters e chama as ações. Toda decisão (quando
 /// atualizar, o que é "nova versão", como calcular a taxa de sucesso) mora
 /// aqui, e por isso pode ser testada sem montar nenhum widget.
 class DashboardViewModel extends ChangeNotifier {
   DashboardViewModel({
     required this._repository,
     required this.buildInfo,
+    PageReloader? reloadPage,
+    this.autoReloadDelay,
     DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now;
+  }) : _reloadPage = reloadPage ?? _doNothing,
+       _clock = clock ?? DateTime.now;
 
-  /// Intervalo normal entre consultas (cabe no limite de 60/h da API).
-  static const Duration idleInterval = Duration(minutes: 2);
+  /// Intervalo mínimo com o pipeline parado.
+  static const Duration idleInterval = Duration(seconds: 45);
 
-  /// Com um deploy rodando, atualiza mais rápido para acompanhar.
-  static const Duration activeInterval = Duration(seconds: 30);
+  /// Com um deploy rodando, consulta bem mais rápido para acompanhar.
+  static const Duration activeInterval = Duration(seconds: 15);
 
   /// Depois de um erro comum, tenta de novo em 1 minuto.
   static const Duration errorInterval = Duration(minutes: 1);
 
+  /// Requisições guardadas para o F5 e outras abas (o limite é por IP).
+  static const int requestReserve = 5;
+
   final PipelineRepository _repository;
+  final PageReloader _reloadPage;
   final DateTime Function() _clock;
 
   /// Dados "congelados" na compilação (commit, testes, versão).
   final BuildInfo buildInfo;
 
+  /// Espera antes de recarregar sozinho quando sai uma versão nova.
+  /// `null` desliga o recarregamento automático (usado nos testes).
+  final Duration? autoReloadDelay;
+
   List<WorkflowRun> _runs = const [];
+  RateLimit? _rateLimit;
   bool _isLoading = false;
   bool _hasLoaded = false;
+  bool _paused = false;
+  bool _reloadScheduled = false;
   String? _errorMessage;
   DateTime? _lastUpdated;
   DateTime? _rateLimitResetAt;
-  Timer? _timer;
+  Timer? _refreshTimer;
+  Timer? _reloadTimer;
   bool _disposed = false;
 
   // ---------------------------------------------------------------------------
@@ -60,6 +80,9 @@ class DashboardViewModel extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   List<WorkflowRun> get runs => _runs;
+
+  /// Saldo de requisições da API na última resposta.
+  RateLimit? get rateLimit => _rateLimit;
 
   bool get isLoading => _isLoading;
 
@@ -70,6 +93,9 @@ class DashboardViewModel extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   DateTime? get lastUpdated => _lastUpdated;
+
+  /// A página vai se recarregar sozinha em instantes.
+  bool get isReloadScheduled => _reloadScheduled;
 
   DateTime get now => _clock();
 
@@ -85,6 +111,27 @@ class DashboardViewModel extends ChangeNotifier {
   /// Atualiza agora (botão de refresh) e reinicia o relógio.
   Future<void> refresh() => _loadAndSchedule();
 
+  /// Aba foi para segundo plano: para de gastar requisições.
+  void pause() {
+    _paused = true;
+    _refreshTimer?.cancel();
+  }
+
+  /// Aba voltou a ficar visível: atualiza na hora e retoma o ciclo.
+  void resume() {
+    if (!_paused) {
+      return;
+    }
+    _paused = false;
+    unawaited(_loadAndSchedule());
+  }
+
+  /// Recarrega a página agora (botão "Recarregar página").
+  Future<void> reloadNow() {
+    _reloadTimer?.cancel();
+    return _reloadPage();
+  }
+
   /// Busca as execuções uma vez, sem agendar a próxima.
   Future<void> load() async {
     if (_isLoading) {
@@ -94,11 +141,14 @@ class DashboardViewModel extends ChangeNotifier {
     _notify();
 
     try {
-      _runs = await _repository.fetchRecentRuns();
+      final page = await _repository.fetchRecentRuns();
+      _runs = page.runs;
+      _rateLimit = page.rateLimit;
       _hasLoaded = true;
       _errorMessage = null;
       _rateLimitResetAt = null;
       _lastUpdated = _clock();
+      _scheduleReloadIfNeeded();
     } on RateLimitException catch (error) {
       _rateLimitResetAt = error.resetAt;
       _errorMessage =
@@ -113,18 +163,34 @@ class DashboardViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadAndSchedule() async {
-    _timer?.cancel();
+    _refreshTimer?.cancel();
     await load();
-    if (_disposed) {
+    if (_disposed || _paused) {
       return;
     }
-    _timer = Timer(nextRefreshDelay, () => unawaited(_loadAndSchedule()));
+    _refreshTimer = Timer(
+      nextRefreshDelay,
+      () => unawaited(_loadAndSchedule()),
+    );
+  }
+
+  /// Saiu versão nova? Agenda o recarregamento (uma vez só).
+  void _scheduleReloadIfNeeded() {
+    final delay = autoReloadDelay;
+    if (delay == null ||
+        _reloadScheduled ||
+        panelStatus != PanelStatus.newVersionAvailable) {
+      return;
+    }
+    _reloadScheduled = true;
+    _reloadTimer = Timer(delay, () => unawaited(reloadNow()));
   }
 
   @override
   void dispose() {
     _disposed = true;
-    _timer?.cancel();
+    _refreshTimer?.cancel();
+    _reloadTimer?.cancel();
     super.dispose();
   }
 
@@ -139,18 +205,50 @@ class DashboardViewModel extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   /// Quanto esperar até a próxima consulta à API.
+  ///
+  /// A API sem token permite 60 requisições por hora. Por isso:
+  /// - durante um deploy, consulta a cada [activeInterval] (o deploy é curto);
+  /// - parado, divide o saldo que sobrou pelo tempo até o reset, sem nunca
+  ///   ficar abaixo de [idleInterval];
+  /// - se o saldo acabou, espera o reset.
   Duration get nextRefreshDelay {
-    final resetAt = _rateLimitResetAt;
-    if (resetAt != null) {
-      final wait = resetAt.difference(_clock());
-      return wait.isNegative
-          ? errorInterval
-          : wait + const Duration(seconds: 5);
+    final now = _clock();
+    final blockedUntil = _rateLimitResetAt;
+    if (blockedUntil != null) {
+      return _untilReset(blockedUntil, now);
     }
     if (_errorMessage != null) {
       return errorInterval;
     }
-    return activeRun != null ? activeInterval : idleInterval;
+
+    final limit = _rateLimit;
+    if (limit != null && limit.remaining <= requestReserve) {
+      return _untilReset(limit.resetAt, now);
+    }
+    if (activeRun != null) {
+      return activeInterval;
+    }
+    final budget = _budgetInterval(now);
+    return budget > idleInterval ? budget : idleInterval;
+  }
+
+  /// Saldo restante dividido igualmente até o reset.
+  Duration _budgetInterval(DateTime now) {
+    final limit = _rateLimit;
+    if (limit == null) {
+      return Duration.zero;
+    }
+    final window = limit.resetAt.difference(now);
+    if (window.isNegative) {
+      return Duration.zero;
+    }
+    final usable = limit.remaining - requestReserve;
+    return Duration(microseconds: window.inMicroseconds ~/ usable);
+  }
+
+  Duration _untilReset(DateTime resetAt, DateTime now) {
+    final wait = resetAt.difference(now);
+    return wait.isNegative ? errorInterval : wait + const Duration(seconds: 5);
   }
 
   /// Execução na fila ou rodando agora (a mais recente).

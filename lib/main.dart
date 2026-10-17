@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:status_ops/config.dart';
 import 'package:status_ops/data/build_info.dart';
 import 'package:status_ops/data/pipeline_repository.dart';
+import 'package:status_ops/ui/core/page_reloader.dart';
 import 'package:status_ops/ui/core/theme.dart';
 import 'package:status_ops/ui/dashboard/dashboard_screen.dart';
 import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
@@ -14,6 +15,9 @@ void main() {
     repository: GitHubPipelineRepository(repository: githubRepository),
     // No CI os metadados chegam via --dart-define-from-file=build_info.json.
     buildInfo: BuildInfo.fromEnvironment(),
+    // Quando sai uma versão nova, mostra o aviso e recarrega sozinho.
+    reloadPage: reloadPage,
+    autoReloadDelay: const Duration(seconds: 8),
   )..start();
 
   runApp(StatusOpsApp(viewModel: viewModel));

@@ -1,11 +1,15 @@
+import 'package:status_ops/data/models/runs_page.dart';
 import 'package:status_ops/data/models/workflow_run.dart';
 import 'package:status_ops/data/pipeline_repository.dart';
 
 /// Repositório de mentira: devolve o que o teste mandar, sem internet.
 class FakePipelineRepository implements PipelineRepository {
-  FakePipelineRepository({this.runs = const [], this.error});
+  FakePipelineRepository({this.runs = const [], this.rateLimit, this.error});
 
   List<WorkflowRun> runs;
+
+  /// Saldo da API devolvido junto com as execuções.
+  RateLimit? rateLimit;
 
   /// Se preenchido, é lançado em vez de devolver [runs].
   PipelineException? error;
@@ -13,13 +17,13 @@ class FakePipelineRepository implements PipelineRepository {
   int calls = 0;
 
   @override
-  Future<List<WorkflowRun>> fetchRecentRuns() async {
+  Future<RunsPage> fetchRecentRuns() async {
     calls++;
     final failure = error;
     if (failure != null) {
       throw failure;
     }
-    return runs;
+    return RunsPage(runs: runs, rateLimit: rateLimit);
   }
 }
 

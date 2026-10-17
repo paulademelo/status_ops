@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:status_ops/data/build_info.dart';
+import 'package:status_ops/data/models/runs_page.dart';
 import 'package:status_ops/data/pipeline_repository.dart';
 import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
 
@@ -167,7 +168,13 @@ void main() {
   });
 
   group('Próxima atualização', () {
-    test('2 min quando está tudo parado', () async {
+    RateLimit limit(int remaining, Duration resetIn) => RateLimit(
+      limit: 60,
+      remaining: remaining,
+      resetAt: fixedNow.add(resetIn),
+    );
+
+    test('parado, sem info da API: intervalo mínimo', () async {
       final viewModel = buildViewModel(
         FakePipelineRepository(runs: [fakeRun()]),
       );
@@ -176,13 +183,56 @@ void main() {
       expect(viewModel.nextRefreshDelay, DashboardViewModel.idleInterval);
     });
 
-    test('30 s enquanto um deploy está rodando', () async {
+    test('parado com saldo folgado: intervalo mínimo', () async {
       final viewModel = buildViewModel(
-        FakePipelineRepository(runs: [fakeRun(status: 'queued')]),
+        FakePipelineRepository(
+          runs: [fakeRun()],
+          rateLimit: limit(59, const Duration(minutes: 10)),
+        ),
+      );
+      await viewModel.load();
+
+      expect(viewModel.nextRefreshDelay, DashboardViewModel.idleInterval);
+    });
+
+    test('parado com saldo curto: divide o que sobrou até o reset', () async {
+      // 15 restantes - 5 de reserva = 10 consultas em 20 min → 1 a cada 2 min.
+      final viewModel = buildViewModel(
+        FakePipelineRepository(
+          runs: [fakeRun()],
+          rateLimit: limit(15, const Duration(minutes: 20)),
+        ),
+      );
+      await viewModel.load();
+
+      expect(viewModel.nextRefreshDelay, const Duration(minutes: 2));
+    });
+
+    test('durante um deploy consulta a cada 15 s', () async {
+      final viewModel = buildViewModel(
+        FakePipelineRepository(
+          runs: [fakeRun(status: 'queued')],
+          rateLimit: limit(30, const Duration(minutes: 20)),
+        ),
       );
       await viewModel.load();
 
       expect(viewModel.nextRefreshDelay, DashboardViewModel.activeInterval);
+    });
+
+    test('saldo acabando: espera o reset, mesmo com deploy rodando', () async {
+      final viewModel = buildViewModel(
+        FakePipelineRepository(
+          runs: [fakeRun(status: 'in_progress')],
+          rateLimit: limit(5, const Duration(minutes: 10)),
+        ),
+      );
+      await viewModel.load();
+
+      expect(
+        viewModel.nextRefreshDelay,
+        const Duration(minutes: 10, seconds: 5),
+      );
     });
 
     test('1 min depois de um erro comum', () async {
@@ -206,6 +256,113 @@ void main() {
         viewModel.nextRefreshDelay,
         const Duration(minutes: 10, seconds: 5),
       );
+    });
+  });
+
+  group('Segundo plano', () {
+    test('ao voltar para a aba, atualiza na hora', () async {
+      final repository = FakePipelineRepository(runs: [fakeRun()]);
+      final viewModel = buildViewModel(repository);
+
+      viewModel.pause();
+      viewModel.resume();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repository.calls, 1);
+      viewModel.dispose();
+    });
+
+    test('resume sem pause não faz nada', () async {
+      final repository = FakePipelineRepository(runs: [fakeRun()]);
+      final viewModel = buildViewModel(repository);
+
+      viewModel.resume();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repository.calls, 0);
+      viewModel.dispose();
+    });
+  });
+
+  group('Recarregamento automático', () {
+    final newerDeploy = [
+      fakeRun(runNumber: 6, sha: 'def5678xxxxx'),
+      fakeRun(runNumber: 5),
+    ];
+
+    DashboardViewModel buildReloading(
+      FakePipelineRepository repository,
+      void Function() onReload, {
+      Duration? delay = const Duration(milliseconds: 10),
+    }) {
+      return DashboardViewModel(
+        repository: repository,
+        buildInfo: deployedBuild,
+        clock: () => fixedNow,
+        reloadPage: () async => onReload(),
+        autoReloadDelay: delay,
+      );
+    }
+
+    test('recarrega sozinho quando sai uma versão nova', () async {
+      var reloads = 0;
+      final viewModel = buildReloading(
+        FakePipelineRepository(runs: newerDeploy),
+        () => reloads++,
+      );
+
+      await viewModel.load();
+      expect(viewModel.isReloadScheduled, isTrue);
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(reloads, 1);
+      viewModel.dispose();
+    });
+
+    test('agenda o recarregamento uma vez só', () async {
+      var reloads = 0;
+      final viewModel = buildReloading(
+        FakePipelineRepository(runs: newerDeploy),
+        () => reloads++,
+      );
+
+      await viewModel.load();
+      await viewModel.load();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(reloads, 1);
+      viewModel.dispose();
+    });
+
+    test('não recarrega se a página já é a versão mais recente', () async {
+      var reloads = 0;
+      final viewModel = buildReloading(
+        FakePipelineRepository(runs: [fakeRun(runNumber: 5)]),
+        () => reloads++,
+      );
+
+      await viewModel.load();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(viewModel.isReloadScheduled, isFalse);
+      expect(reloads, 0);
+      viewModel.dispose();
+    });
+
+    test('sem autoReloadDelay, só recarrega pelo botão', () async {
+      var reloads = 0;
+      final viewModel = buildReloading(
+        FakePipelineRepository(runs: newerDeploy),
+        () => reloads++,
+        delay: null,
+      );
+
+      await viewModel.load();
+      expect(viewModel.isReloadScheduled, isFalse);
+
+      await viewModel.reloadNow();
+      expect(reloads, 1);
+      viewModel.dispose();
     });
   });
 }

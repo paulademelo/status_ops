@@ -15,6 +15,7 @@ class RecentRunsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final error = viewModel.errorMessage;
+    final quota = _quota();
     return GlowCard(
       color: AppColors.cyan,
       child: Column(
@@ -43,6 +44,15 @@ class RecentRunsPanel extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
           ),
+          if (quota != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              quota,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+          ],
           const SizedBox(height: 12),
           if (error != null) ...[
             _ErrorBox(message: error),
@@ -64,7 +74,18 @@ class RecentRunsPanel extends StatelessWidget {
     final updatedText = updated == null
         ? ''
         : ' · atualizado às ${formatClock(updated)}';
-    return 'Branch main$updatedText';
+    final next = formatDuration(viewModel.nextRefreshDelay);
+    return 'Branch main$updatedText · próxima em $next';
+  }
+
+  /// Ex.: "API do GitHub: 43 de 60 requisições restantes nesta hora".
+  String? _quota() {
+    final limit = viewModel.rateLimit;
+    if (limit == null) {
+      return null;
+    }
+    return 'API do GitHub: ${limit.remaining} de ${limit.limit} '
+        'requisições restantes nesta hora';
   }
 
   List<Widget> _content() {

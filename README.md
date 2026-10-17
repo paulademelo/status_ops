@@ -48,7 +48,9 @@ Além dos dados "congelados" no build, o painel consulta a API pública do GitHu
 - lista as últimas execuções da `main` e marca a que publicou a página aberta (**no ar**);
 - calcula a taxa de sucesso e a duração média do pipeline;
 - mostra **"Deploy em andamento"** quando há uma execução rodando e **"Nova versão publicada"** quando um deploy mais novo termina;
-- atualiza sozinho: a cada 2 min, a cada 30 s durante um deploy e respeita o limite de 60 requisições/hora da API sem token.
+- atualiza sozinho, sem F5: a cada 15 s durante um deploy e, com o pipeline parado, divide o saldo de requisições que sobrou até o reset da API (60/hora sem token), nunca abaixo de 45 s;
+- pausa as consultas quando a aba fica em segundo plano e atualiza na hora quando ela volta;
+- quando um deploy novo termina, recarrega a página sozinho em alguns segundos (buscando os arquivos novos sem cache).
 
 > A consulta é feita **sem token** de propósito: tudo que vai num build web é público. Por isso o repositório precisa ser público.
 

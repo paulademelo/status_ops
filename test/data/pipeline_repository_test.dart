@@ -37,15 +37,55 @@ void main() {
     late Uri calledUri;
     final repository = repositoryWith((request) async {
       calledUri = request.url;
-      return http.Response(jsonEncode(sampleBody), 200);
+      return http.Response(
+        jsonEncode(sampleBody),
+        200,
+        headers: {
+          'x-ratelimit-limit': '60',
+          'x-ratelimit-remaining': '43',
+          'x-ratelimit-reset': '1792252800',
+        },
+      );
     });
 
-    final runs = await repository.fetchRecentRuns();
+    final page = await repository.fetchRecentRuns();
 
     expect(calledUri.path, '/repos/paulademelo/status_ops/actions/runs');
     expect(calledUri.queryParameters['branch'], 'main');
-    expect(runs, hasLength(1));
-    expect(runs.first.runNumber, 7);
+    expect(page.runs, hasLength(1));
+    expect(page.runs.first.runNumber, 7);
+    expect(page.rateLimit?.limit, 60);
+    expect(page.rateLimit?.remaining, 43);
+  });
+
+  test('cada chamada usa um "cache buster" diferente', () async {
+    final urls = <Uri>[];
+    var now = DateTime.utc(2026, 10, 17, 15);
+    final repository = GitHubPipelineRepository(
+      repository: 'paulademelo/status_ops',
+      clock: () => now,
+      client: MockClient((request) async {
+        urls.add(request.url);
+        return http.Response(jsonEncode(sampleBody), 200);
+      }),
+    );
+
+    await repository.fetchRecentRuns();
+    now = now.add(const Duration(seconds: 15));
+    await repository.fetchRecentRuns();
+
+    expect(urls[0].queryParameters['t'], isNotNull);
+    expect(urls[0], isNot(urls[1]));
+  });
+
+  test('sem cabeçalhos de limite, rateLimit fica nulo', () async {
+    final repository = repositoryWith(
+      (_) async => http.Response(jsonEncode(sampleBody), 200),
+    );
+
+    final page = await repository.fetchRecentRuns();
+
+    expect(page.rateLimit, isNull);
   });
 
   test(
