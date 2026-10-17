@@ -119,8 +119,9 @@ class DashboardScreen extends StatelessWidget {
           MetricValue(
             value: hasTests ? '${info.testsFailed}' : '—',
             label: 'Falhas',
-            color:
-                info.testsFailed > 0 ? AppColors.orange : AppColors.textMuted,
+            color: info.testsFailed > 0
+                ? AppColors.orange
+                : AppColors.textMuted,
           ),
         ],
         footer: 'Se algum teste falhar, o deploy é cancelado',

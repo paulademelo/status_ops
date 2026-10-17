@@ -102,9 +102,7 @@ void main() {
       expect(find.text('fix: corrige typo na tela inicial'), findsOneWidget);
     });
 
-    testWidgets('build local avisa que está fora do pipeline', (
-      tester,
-    ) async {
+    testWidgets('build local avisa que está fora do pipeline', (tester) async {
       await pumpDashboard(tester);
 
       expect(find.text('Rodando fora do pipeline'), findsOneWidget);

@@ -57,7 +57,9 @@ class MetricCard extends StatelessWidget {
           Row(
             children: [
               for (final metric in values)
-                Expanded(child: _MetricValueView(metric: metric, color: color)),
+                Expanded(
+                  child: _MetricValueView(metric: metric, color: color),
+                ),
             ],
           ),
           const SizedBox(height: 16),
