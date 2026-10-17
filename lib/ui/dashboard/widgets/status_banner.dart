@@ -20,7 +20,7 @@ class StatusBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final isProduction = viewModel.buildInfo.isFromPipeline;
     return GlowCard(
-      color: isProduction ? AppColors.green : AppColors.orange,
+      color: isProduction ? AppColors.success : AppColors.warning,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -64,7 +64,7 @@ class StatusBanner extends StatelessWidget {
         const SizedBox(height: 16),
         _Callout(
           icon: Icons.sync,
-          color: AppColors.orange,
+          color: AppColors.running,
           title: 'Deploy em andamento · execução #${run.runNumber}',
           message:
               '"${run.title}" · iniciada '
@@ -82,14 +82,14 @@ class StatusBanner extends StatelessWidget {
         const SizedBox(height: 16),
         _Callout(
           icon: Icons.new_releases_outlined,
-          color: AppColors.cyan,
+          color: AppColors.success,
           title: 'Nova versão publicada!',
           message: 'O commit ${run.shortSha} já está no ar. $next',
           action: TextButton.icon(
             onPressed: viewModel.reloadNow,
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text('Recarregar página'),
-            style: TextButton.styleFrom(foregroundColor: AppColors.cyan),
+            style: TextButton.styleFrom(foregroundColor: AppColors.success),
           ),
         ),
       ];
@@ -108,7 +108,7 @@ class _Headline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isProduction ? AppColors.green : AppColors.orange;
+    final color = isProduction ? AppColors.success : AppColors.warning;
     final align = centered ? TextAlign.center : TextAlign.start;
     return Column(
       crossAxisAlignment: centered

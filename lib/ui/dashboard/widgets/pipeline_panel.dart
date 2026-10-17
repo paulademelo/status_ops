@@ -19,7 +19,7 @@ class PipelinePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final run = viewModel.focusRun;
     return GlowCard(
-      color: AppColors.blue,
+      color: AppColors.accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

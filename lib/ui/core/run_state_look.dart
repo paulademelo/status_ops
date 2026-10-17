@@ -11,37 +11,37 @@ class RunStateLook {
     return switch (state) {
       RunState.success => const RunStateLook(
         Icons.check_circle,
-        AppColors.green,
+        AppColors.success,
         'Sucesso',
       ),
       RunState.failure => const RunStateLook(
         Icons.cancel,
-        AppColors.orange,
+        AppColors.failure,
         'Falhou',
       ),
       RunState.inProgress => const RunStateLook(
         Icons.sync,
-        AppColors.cyan,
+        AppColors.running,
         'Rodando',
       ),
       RunState.queued => const RunStateLook(
         Icons.schedule,
-        AppColors.blue,
+        AppColors.queued,
         'Na fila',
       ),
       RunState.cancelled => const RunStateLook(
         Icons.block,
-        AppColors.textMuted,
+        AppColors.queued,
         'Cancelada',
       ),
       RunState.skipped => const RunStateLook(
         Icons.skip_next,
-        AppColors.textMuted,
+        AppColors.queued,
         'Pulado',
       ),
       RunState.unknown => const RunStateLook(
         Icons.help_outline,
-        AppColors.textMuted,
+        AppColors.queued,
         'Desconhecido',
       ),
     };

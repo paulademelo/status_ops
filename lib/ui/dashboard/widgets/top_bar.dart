@@ -23,12 +23,12 @@ class TopBar extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: AppColors.cyan.withValues(alpha: 0.15),
+              color: AppColors.brand.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.rocket_launch,
-              color: AppColors.cyan,
+              color: AppColors.brand,
               size: 20,
             ),
           ),
@@ -60,7 +60,7 @@ class _EnvironmentChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isProduction ? AppColors.green : AppColors.orange;
+    final color = isProduction ? AppColors.success : AppColors.warning;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(

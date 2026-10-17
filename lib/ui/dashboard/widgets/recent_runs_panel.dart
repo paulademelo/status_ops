@@ -18,7 +18,7 @@ class RecentRunsPanel extends StatelessWidget {
     final error = viewModel.errorMessage;
     final quota = _quota();
     return GlowCard(
-      color: AppColors.cyan,
+      color: AppColors.brand,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -231,7 +231,7 @@ class _CurrentBuildTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.green.withValues(alpha: 0.12),
+        color: AppColors.success.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: const Text(
@@ -239,7 +239,7 @@ class _CurrentBuildTag extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: AppColors.green,
+          color: AppColors.success,
         ),
       ),
     );
@@ -256,13 +256,13 @@ class _ErrorBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.orange.withValues(alpha: 0.12),
+        color: AppColors.failure.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.orange.withValues(alpha: 0.5)),
+        border: Border.all(color: AppColors.failure.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: AppColors.orange),
+          const Icon(Icons.warning_amber_rounded, color: AppColors.failure),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

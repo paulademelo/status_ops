@@ -7,7 +7,7 @@ class GlowCard extends StatelessWidget {
   const GlowCard({
     super.key,
     required this.child,
-    this.color = AppColors.cyan,
+    this.color = AppColors.brand,
     this.padding = const EdgeInsets.all(20),
   });
 

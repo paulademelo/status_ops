@@ -98,7 +98,7 @@ class DashboardScreen extends StatelessWidget {
       MetricCard(
         title: 'Saúde do Pipeline',
         icon: Icons.monitor_heart_outlined,
-        color: AppColors.cyan,
+        color: AppColors.brand,
         values: [
           MetricValue(
             value: successRate == null
@@ -128,7 +128,7 @@ class DashboardScreen extends StatelessWidget {
       MetricCard(
         title: 'Testes Automatizados',
         icon: Icons.fact_check_outlined,
-        color: AppColors.green,
+        color: AppColors.success,
         values: [
           MetricValue(
             value: hasTests ? '${(info.testPassRate * 100).round()}%' : '—',
@@ -143,7 +143,7 @@ class DashboardScreen extends StatelessWidget {
             value: hasTests ? '${info.testsFailed}' : '—',
             label: 'Falhas',
             color: info.testsFailed > 0
-                ? AppColors.orange
+                ? AppColors.failure
                 : AppColors.textMuted,
           ),
         ],
@@ -154,7 +154,7 @@ class DashboardScreen extends StatelessWidget {
       MetricCard(
         title: 'Versão da Aplicação',
         icon: Icons.verified_outlined,
-        color: AppColors.orange,
+        color: AppColors.accent,
         values: const [
           MetricValue(
             value: appVersion,
@@ -172,7 +172,7 @@ class DashboardScreen extends StatelessWidget {
     if (rate == null) {
       return AppColors.textMuted;
     }
-    return rate >= 0.8 ? AppColors.green : AppColors.orange;
+    return rate >= 0.8 ? AppColors.success : AppColors.warning;
   }
 }
 
