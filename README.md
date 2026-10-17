@@ -2,7 +2,7 @@
 
 O **Flutter StatusOps** é uma aplicação web minimalista desenvolvida em Flutter Web para servir de ambiente prático no estudo e implementação de **CI/CD (Integração Contínua e Entrega Contínua)**.
 
-O app é o próprio painel de controle do deploy: ele mostra o status da build, os testes, a versão no ar e os últimos commits do "Projeto Aurora" — e esses dados são gerados **pela própria esteira** a cada publicação.
+O app é o próprio painel de controle do deploy: ele mostra o status da build, os testes, a versão no ar e os últimos commits do "Projeto StatusOps" — e esses dados são gerados **pela própria esteira** a cada publicação.
 
 ## 🎯 Objetivo do Projeto
 

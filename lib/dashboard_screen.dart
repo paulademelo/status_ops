@@ -119,9 +119,8 @@ class DashboardScreen extends StatelessWidget {
           MetricValue(
             value: hasTests ? '${info.testsFailed}' : '—',
             label: 'Falhas',
-            color: info.testsFailed > 0
-                ? AppColors.orange
-                : AppColors.textMuted,
+            color:
+                info.testsFailed > 0 ? AppColors.orange : AppColors.textMuted,
           ),
         ],
         footer: 'Se algum teste falhar, o deploy é cancelado',
@@ -226,7 +225,10 @@ class _Footer extends StatelessWidget {
           spacing: 16,
           runSpacing: 8,
           children: [
-            const Text('Flutter StatusOps · laboratório de CI/CD', style: style),
+            const Text(
+              'Flutter StatusOps · laboratório de CI/CD',
+              style: style,
+            ),
             Text(
               'build ${buildInfo.runNumber} · commit ${buildInfo.commitSha}',
               style: style,

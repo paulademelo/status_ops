@@ -6,7 +6,7 @@
 const String appVersion = 'v1.0.0';
 
 /// Nome do projeto fictício monitorado pelo painel.
-const String projectName = 'Projeto Aurora';
+const String projectName = 'Projeto StatusOps';
 
 /// Mensagem de destaque mostrada no banner de produção.
 const String statusMessage = 'Deploy automatizado com sucesso!';
