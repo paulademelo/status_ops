@@ -15,10 +15,11 @@ class RecentRunsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final error = viewModel.errorMessage;
     final quota = _quota();
     return GlowCard(
-      color: AppColors.brand,
+      color: colors.brand,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -35,7 +36,7 @@ class RecentRunsPanel extends StatelessWidget {
               IconButton(
                 tooltip: 'Atualizar agora',
                 onPressed: viewModel.isLoading ? null : viewModel.refresh,
-                icon: const Icon(Icons.refresh, color: AppColors.textMuted),
+                icon: Icon(Icons.refresh, color: colors.textMuted),
               ),
             ],
           ),
@@ -46,7 +47,7 @@ class RecentRunsPanel extends StatelessWidget {
             _ErrorBox(message: error),
             const SizedBox(height: 12),
           ],
-          ..._content(),
+          ..._content(colors),
         ],
       ),
     );
@@ -81,7 +82,7 @@ class RecentRunsPanel extends StatelessWidget {
         'requisições restantes nesta hora';
   }
 
-  List<Widget> _content() {
+  List<Widget> _content(AppPalette colors) {
     if (!viewModel.hasLoaded) {
       if (!viewModel.isLoading) {
         return const [];
@@ -104,17 +105,13 @@ class RecentRunsPanel extends StatelessWidget {
       return const [
         Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
-          child: Text(
-            'Nenhuma execução encontrada na main ainda.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-          ),
+          child: _MutedLine('Nenhuma execução encontrada na main ainda.'),
         ),
       ];
     }
     return [
       for (var i = 0; i < runs.length; i++) ...[
-        if (i > 0) const Divider(height: 1, color: AppColors.border),
+        if (i > 0) Divider(height: 1, color: colors.border),
         _RunTile(
           run: runs[i],
           now: viewModel.now,
@@ -137,7 +134,7 @@ class _MutedLine extends StatelessWidget {
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+      style: TextStyle(fontSize: 12, color: context.colors.textMuted),
     );
   }
 }
@@ -158,7 +155,8 @@ class _RunTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final look = RunStateLook.of(run.state);
+    final colors = context.colors;
+    final look = RunStateLook.of(run.state, colors);
     final duration = run.duration;
     final details = [
       look.label,
@@ -193,19 +191,10 @@ class _RunTile extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    details,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
+                  _MutedLine(details),
                 ],
               ),
             ),
@@ -214,7 +203,7 @@ class _RunTile extends StatelessWidget {
               const _CurrentBuildTag(),
             ],
             const SizedBox(width: 8),
-            const Icon(Icons.open_in_new, size: 16, color: AppColors.textMuted),
+            Icon(Icons.open_in_new, size: 16, color: colors.textMuted),
           ],
         ),
       ),
@@ -228,18 +217,19 @@ class _CurrentBuildTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final success = context.colors.success;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha: 0.12),
+        color: success.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: const Text(
+      child: Text(
         'no ar',
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: AppColors.success,
+          color: success,
         ),
       ),
     );
@@ -253,26 +243,19 @@ class _ErrorBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final failure = context.colors.failure;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.failure.withValues(alpha: 0.12),
+        color: failure.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.failure.withValues(alpha: 0.5)),
+        border: Border.all(color: failure.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: AppColors.failure),
+          Icon(Icons.warning_amber_rounded, color: failure),
           const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
+          Expanded(child: Text(message, style: const TextStyle(fontSize: 13))),
         ],
       ),
     );

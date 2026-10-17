@@ -5,6 +5,8 @@ import 'package:status_ops/data/build_info.dart';
 import 'package:status_ops/data/pipeline_repository.dart';
 import 'package:status_ops/ui/core/page_reloader.dart';
 import 'package:status_ops/ui/core/theme.dart';
+import 'package:status_ops/ui/core/theme_controller.dart';
+import 'package:status_ops/ui/core/theme_storage.dart';
 import 'package:status_ops/ui/core/url_opener.dart';
 import 'package:status_ops/ui/dashboard/dashboard_screen.dart';
 import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
@@ -23,21 +25,40 @@ void main() {
     autoReloadDelay: const Duration(seconds: 8),
   )..start();
 
-  runApp(StatusOpsApp(viewModel: viewModel));
+  // O tema escolhido fica salvo no navegador.
+  final themeController = ThemeController(
+    read: readSavedTheme,
+    write: saveTheme,
+  );
+
+  runApp(StatusOpsApp(viewModel: viewModel, themeController: themeController));
 }
 
 class StatusOpsApp extends StatelessWidget {
-  const StatusOpsApp({super.key, required this.viewModel});
+  const StatusOpsApp({
+    super.key,
+    required this.viewModel,
+    required this.themeController,
+  });
 
   final DashboardViewModel viewModel;
+  final ThemeController themeController;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter StatusOps',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      home: DashboardScreen(viewModel: viewModel),
+    // Quando o tema muda, só o MaterialApp precisa saber: ele entrega a
+    // nova paleta para a árvore inteira (com uma transição animada).
+    return ListenableBuilder(
+      listenable: themeController,
+      builder: (context, _) => MaterialApp(
+        title: 'Flutter StatusOps',
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(themeController.palette),
+        home: DashboardScreen(
+          viewModel: viewModel,
+          themeController: themeController,
+        ),
+      ),
     );
   }
 }

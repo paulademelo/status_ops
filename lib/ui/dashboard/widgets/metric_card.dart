@@ -72,7 +72,7 @@ class MetricCard extends StatelessWidget {
             footer,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 12, color: context.colors.textMuted),
           ),
         ],
       ),
@@ -108,7 +108,7 @@ class _MetricValueView extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 13, color: context.colors.textMuted),
         ),
       ],
     );

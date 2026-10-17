@@ -18,9 +18,9 @@ class RunTrend extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Text(
+        Text(
           'Tendência',
-          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 12, color: context.colors.textMuted),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -42,7 +42,7 @@ class _TrendDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final look = RunStateLook.of(run.state);
+    final look = RunStateLook.of(run.state, context.colors);
     return Tooltip(
       message: '#${run.runNumber} · ${look.label}',
       child: Container(

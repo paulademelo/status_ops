@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:status_ops/config.dart';
 import 'package:status_ops/ui/core/formatters.dart';
 import 'package:status_ops/ui/core/theme.dart';
+import 'package:status_ops/ui/core/theme_controller.dart';
 import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
 import 'package:status_ops/ui/dashboard/widgets/metric_card.dart';
 import 'package:status_ops/ui/dashboard/widgets/pipeline_panel.dart';
@@ -16,9 +17,14 @@ const double _gap = 20;
 /// Tela do painel. Não guarda estado nem regras: só desenha o que o
 /// [DashboardViewModel] expõe e se redesenha quando ele avisa que mudou.
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key, required this.viewModel});
+  const DashboardScreen({
+    super.key,
+    required this.viewModel,
+    required this.themeController,
+  });
 
   final DashboardViewModel viewModel;
+  final ThemeController themeController;
 
   /// A partir desta largura os cards ficam lado a lado.
   static const double wideBreakpoint = 900;
@@ -33,7 +39,10 @@ class DashboardScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(isProduction: viewModel.buildInfo.isFromPipeline),
+            TopBar(
+              isProduction: viewModel.buildInfo.isFromPipeline,
+              themeController: themeController,
+            ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
@@ -49,6 +58,7 @@ class DashboardScreen extends StatelessWidget {
                       listenable: viewModel,
                       builder: (context, _) => LayoutBuilder(
                         builder: (context, constraints) => _buildContent(
+                          context.colors,
                           isWide: constraints.maxWidth >= wideBreakpoint,
                         ),
                       ),
@@ -63,7 +73,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildContent({required bool isWide}) {
+  Widget _buildContent(AppPalette colors, {required bool isWide}) {
     final buildInfo = viewModel.buildInfo;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -72,7 +82,7 @@ class DashboardScreen extends StatelessWidget {
         const SizedBox(height: 24),
         StatusBanner(viewModel: viewModel),
         const SizedBox(height: _gap),
-        _ResponsiveRow(isWide: isWide, children: _metricCards()),
+        _ResponsiveRow(isWide: isWide, children: _metricCards(colors)),
         const SizedBox(height: _gap),
         _ResponsiveRow(
           isWide: isWide,
@@ -88,7 +98,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  List<Widget> _metricCards() {
+  List<Widget> _metricCards(AppPalette colors) {
     final info = viewModel.buildInfo;
     final hasTests = info.hasTestResults;
     final successRate = viewModel.successRate;
@@ -98,26 +108,26 @@ class DashboardScreen extends StatelessWidget {
       MetricCard(
         title: 'Saúde do Pipeline',
         icon: Icons.monitor_heart_outlined,
-        color: AppColors.brand,
+        color: colors.brand,
         values: [
           MetricValue(
             value: successRate == null
                 ? '—'
                 : '${(successRate * 100).round()}%',
             label: 'Sucesso',
-            color: _successColor(successRate),
+            color: _successColor(successRate, colors),
           ),
           MetricValue(
             value: averageDuration == null
                 ? '—'
                 : formatDuration(averageDuration),
             label: 'Duração média',
-            color: AppColors.textPrimary,
+            color: colors.textPrimary,
           ),
           MetricValue(
             value: viewModel.hasLoaded ? '${viewModel.runs.length}' : '—',
             label: 'Execuções',
-            color: AppColors.textPrimary,
+            color: colors.textPrimary,
           ),
         ],
         extra: viewModel.runs.isEmpty ? null : RunTrend(runs: viewModel.trend),
@@ -128,7 +138,7 @@ class DashboardScreen extends StatelessWidget {
       MetricCard(
         title: 'Testes Automatizados',
         icon: Icons.fact_check_outlined,
-        color: AppColors.success,
+        color: colors.success,
         values: [
           MetricValue(
             value: hasTests ? '${(info.testPassRate * 100).round()}%' : '—',
@@ -137,14 +147,12 @@ class DashboardScreen extends StatelessWidget {
           MetricValue(
             value: hasTests ? '${info.testsTotal}' : '—',
             label: 'Testes',
-            color: AppColors.textPrimary,
+            color: colors.textPrimary,
           ),
           MetricValue(
             value: hasTests ? '${info.testsFailed}' : '—',
             label: 'Falhas',
-            color: info.testsFailed > 0
-                ? AppColors.failure
-                : AppColors.textMuted,
+            color: info.testsFailed > 0 ? colors.failure : colors.textMuted,
           ),
         ],
         footer: info.isFromPipeline
@@ -154,12 +162,12 @@ class DashboardScreen extends StatelessWidget {
       MetricCard(
         title: 'Versão da Aplicação',
         icon: Icons.verified_outlined,
-        color: AppColors.accent,
-        values: const [
+        color: colors.accent,
+        values: [
           MetricValue(
             value: appVersion,
             label: 'Em produção',
-            color: AppColors.textPrimary,
+            color: colors.textPrimary,
           ),
         ],
         footer: 'Último deploy: ${info.buildDate}',
@@ -167,12 +175,12 @@ class DashboardScreen extends StatelessWidget {
     ];
   }
 
-  /// Verde acima de 80%, laranja abaixo.
-  static Color _successColor(double? rate) {
+  /// Cor de sucesso acima de 80%, de atenção abaixo.
+  static Color _successColor(double? rate, AppPalette colors) {
     if (rate == null) {
-      return AppColors.textMuted;
+      return colors.textMuted;
     }
-    return rate >= 0.8 ? AppColors.success : AppColors.warning;
+    return rate >= 0.8 ? colors.success : colors.warning;
   }
 }
 
@@ -181,22 +189,18 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Painel de Deploy · $projectName',
-          style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
+          style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
         ),
-        SizedBox(height: 6),
+        const SizedBox(height: 6),
         Text(
           'Flutter Web publicado automaticamente com GitHub Actions + '
           'GitHub Pages',
-          style: TextStyle(fontSize: 15, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 15, color: context.colors.textMuted),
         ),
       ],
     );
@@ -249,21 +253,19 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 13, color: AppColors.textMuted);
+    final colors = context.colors;
+    final style = TextStyle(fontSize: 13, color: colors.textMuted);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Divider(color: AppColors.border),
+        Divider(color: colors.border),
         const SizedBox(height: 12),
         Wrap(
           alignment: WrapAlignment.spaceBetween,
           spacing: 16,
           runSpacing: 8,
           children: [
-            const Text(
-              'Flutter StatusOps · laboratório de CI/CD',
-              style: style,
-            ),
+            Text('Flutter StatusOps · laboratório de CI/CD', style: style),
             Text('build $runNumber · commit $commitSha', style: style),
           ],
         ),

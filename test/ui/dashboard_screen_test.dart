@@ -6,6 +6,8 @@ import 'package:status_ops/data/build_info.dart';
 import 'package:status_ops/data/models/runs_page.dart';
 import 'package:status_ops/data/pipeline_repository.dart';
 import 'package:status_ops/main.dart';
+import 'package:status_ops/ui/core/theme.dart';
+import 'package:status_ops/ui/core/theme_controller.dart';
 import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
 
 import '../fakes/fake_pipeline_repository.dart';
@@ -29,6 +31,7 @@ Future<DashboardViewModel> pumpDashboard(
   Size size = const Size(1280, 1200),
   PageReloader? reloadPage,
   UrlOpener? openUrl,
+  ThemeController? themeController,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -44,7 +47,12 @@ Future<DashboardViewModel> pumpDashboard(
   addTearDown(viewModel.dispose);
   await viewModel.load();
 
-  await tester.pumpWidget(StatusOpsApp(viewModel: viewModel));
+  await tester.pumpWidget(
+    StatusOpsApp(
+      viewModel: viewModel,
+      themeController: themeController ?? ThemeController(),
+    ),
+  );
   return viewModel;
 }
 
@@ -52,6 +60,7 @@ void main() {
   group('Banner e ambiente', _bannerEAmbienteTests);
   group('Execuções ao vivo', _execucoesAoVivoTests);
   group('Erros e layout', _errosELayoutTests);
+  group('Tema', _temaTests);
 }
 
 void _bannerEAmbienteTests() {
@@ -261,5 +270,53 @@ void _errosELayoutTests() {
     expect(find.text('local'), findsWidgets);
     expect(find.text('ONLINE'), findsNothing);
     expect(find.text('produção'), findsNothing);
+  });
+}
+
+void _temaTests() {
+  testWidgets('abre com o tema padrão (Grafite & Âmbar)', (tester) async {
+    await pumpDashboard(
+      tester,
+      repository: FakePipelineRepository(runs: [fakeRun(runNumber: 5)]),
+    );
+
+    final context = tester.element(find.text('ONLINE'));
+    expect(context.colors.brand, AppPalette.grafiteAmbar.brand);
+    expect(
+      Theme.of(context).scaffoldBackgroundColor,
+      AppPalette.grafiteAmbar.background,
+    );
+  });
+
+  testWidgets('botão de tema troca a paleta do app inteiro', (tester) async {
+    final controller = ThemeController();
+    await pumpDashboard(
+      tester,
+      repository: FakePipelineRepository(runs: [fakeRun(runNumber: 5)]),
+      themeController: controller,
+    );
+
+    await tester.tap(find.byTooltip('Trocar tema'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Zinco & Coral').last);
+    await tester.pumpAndSettle();
+
+    expect(controller.current, AppThemeId.zincoCoral);
+    final context = tester.element(find.text('ONLINE'));
+    expect(context.colors.brand, AppPalette.zincoCoral.brand);
+    expect(context.colors.background, AppPalette.zincoCoral.background);
+  });
+
+  testWidgets('tema claro funciona sem overflow no celular', (tester) async {
+    await pumpDashboard(
+      tester,
+      repository: FakePipelineRepository(runs: [fakeRun(runNumber: 5)]),
+      themeController: ThemeController(initial: AppThemeId.papelTerracota),
+      size: const Size(390, 844),
+    );
+
+    expect(tester.takeException(), isNull);
+    final context = tester.element(find.text('ONLINE'));
+    expect(context.colors.brightness, Brightness.light);
   });
 }

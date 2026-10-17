@@ -18,9 +18,10 @@ class StatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final isProduction = viewModel.buildInfo.isFromPipeline;
     return GlowCard(
-      color: isProduction ? AppColors.success : AppColors.warning,
+      color: isProduction ? colors.success : colors.warning,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -48,14 +49,14 @@ class StatusBanner extends StatelessWidget {
               );
             },
           ),
-          ..._liveCallout(),
+          ..._liveCallout(colors),
         ],
       ),
     );
   }
 
   /// Aviso ao vivo, vindo da API do GitHub (some quando está tudo em dia).
-  List<Widget> _liveCallout() {
+  List<Widget> _liveCallout(AppPalette colors) {
     final status = viewModel.panelStatus;
 
     if (status == PanelStatus.deploying) {
@@ -64,7 +65,7 @@ class StatusBanner extends StatelessWidget {
         const SizedBox(height: 16),
         _Callout(
           icon: Icons.sync,
-          color: AppColors.running,
+          color: colors.running,
           title: 'Deploy em andamento · execução #${run.runNumber}',
           message:
               '"${run.title}" · iniciada '
@@ -82,14 +83,14 @@ class StatusBanner extends StatelessWidget {
         const SizedBox(height: 16),
         _Callout(
           icon: Icons.new_releases_outlined,
-          color: AppColors.success,
+          color: colors.success,
           title: 'Nova versão publicada!',
           message: 'O commit ${run.shortSha} já está no ar. $next',
           action: TextButton.icon(
             onPressed: viewModel.reloadNow,
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text('Recarregar página'),
-            style: TextButton.styleFrom(foregroundColor: AppColors.success),
+            style: TextButton.styleFrom(foregroundColor: colors.success),
           ),
         ),
       ];
@@ -108,7 +109,8 @@ class _Headline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isProduction ? AppColors.success : AppColors.warning;
+    final colors = context.colors;
+    final color = isProduction ? colors.success : colors.warning;
     final align = centered ? TextAlign.center : TextAlign.start;
     return Column(
       crossAxisAlignment: centered
@@ -118,7 +120,7 @@ class _Headline extends StatelessWidget {
         Text(
           isProduction ? 'Ambiente de Produção' : 'Ambiente Local',
           textAlign: align,
-          style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 14, color: colors.textMuted),
         ),
         const SizedBox(height: 4),
         Text(
@@ -138,7 +140,7 @@ class _Headline extends StatelessWidget {
               : 'Rodando com flutter run: os dados do build só existem '
                     'quando o pipeline publica.',
           textAlign: align,
-          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+          style: const TextStyle(fontSize: 14),
         ),
       ],
     );
@@ -179,7 +181,7 @@ class _BuildDetails extends StatelessWidget {
           textAlign: centered ? TextAlign.center : TextAlign.end,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 13, color: context.colors.textMuted),
         ),
       ],
     );
@@ -233,10 +235,7 @@ class _Callout extends StatelessWidget {
                   message,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: const TextStyle(fontSize: 13),
                 ),
                 if (action != null) ...[const SizedBox(height: 4), action!],
               ],
@@ -259,24 +258,21 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.surfaceAlt,
+        color: context.colors.surfaceAlt,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppColors.textMuted),
+          Icon(icon, size: 14, color: context.colors.textMuted),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textPrimary,
-              ),
+              style: const TextStyle(fontSize: 12),
             ),
           ),
         ],

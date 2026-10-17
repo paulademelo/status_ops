@@ -57,6 +57,12 @@ Além dos dados "congelados" no build, o painel consulta a API pública do GitHu
 
 > A consulta é feita **sem token** de propósito: tudo que vai num build web é público. Por isso o repositório precisa ser público.
 
+## 🎨 Temas
+
+O painel tem 3 temas, escolhidos pelo botão de paleta no topo: **Grafite & Âmbar** (padrão), **Papel & Terracota** (claro) e **Zinco & Coral**. A escolha fica salva no navegador.
+
+As cores têm nome pelo significado (`success`, `failure`, `running`...) e moram em `lib/ui/core/theme.dart`, numa `ThemeExtension` (`AppPalette`). Os widgets leem a paleta atual com `context.colors`.
+
 ## 🏛️ Arquitetura (MVVM)
 
 ```

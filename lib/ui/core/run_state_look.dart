@@ -4,44 +4,38 @@ import 'package:status_ops/data/models/workflow_run.dart';
 import 'package:status_ops/ui/core/theme.dart';
 
 /// Ícone, cor e texto de cada [RunState] (usado em execuções e jobs).
+///
+/// A cor vem da paleta do tema atual, por isso recebe [AppPalette].
 class RunStateLook {
   const RunStateLook(this.icon, this.color, this.label);
 
-  factory RunStateLook.of(RunState state) {
+  factory RunStateLook.of(RunState state, AppPalette colors) {
     return switch (state) {
-      RunState.success => const RunStateLook(
+      RunState.success => RunStateLook(
         Icons.check_circle,
-        AppColors.success,
+        colors.success,
         'Sucesso',
       ),
-      RunState.failure => const RunStateLook(
-        Icons.cancel,
-        AppColors.failure,
-        'Falhou',
-      ),
-      RunState.inProgress => const RunStateLook(
+      RunState.failure => RunStateLook(Icons.cancel, colors.failure, 'Falhou'),
+      RunState.inProgress => RunStateLook(
         Icons.sync,
-        AppColors.running,
+        colors.running,
         'Rodando',
       ),
-      RunState.queued => const RunStateLook(
-        Icons.schedule,
-        AppColors.queued,
-        'Na fila',
-      ),
-      RunState.cancelled => const RunStateLook(
+      RunState.queued => RunStateLook(Icons.schedule, colors.queued, 'Na fila'),
+      RunState.cancelled => RunStateLook(
         Icons.block,
-        AppColors.queued,
+        colors.queued,
         'Cancelada',
       ),
-      RunState.skipped => const RunStateLook(
+      RunState.skipped => RunStateLook(
         Icons.skip_next,
-        AppColors.queued,
+        colors.queued,
         'Pulado',
       ),
-      RunState.unknown => const RunStateLook(
+      RunState.unknown => RunStateLook(
         Icons.help_outline,
-        AppColors.queued,
+        colors.queued,
         'Desconhecido',
       ),
     };

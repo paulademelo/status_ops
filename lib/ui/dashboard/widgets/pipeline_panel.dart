@@ -17,9 +17,11 @@ class PipelinePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final run = viewModel.focusRun;
+    final muted = TextStyle(fontSize: 13, color: colors.textMuted);
     return GlowCard(
-      color: AppColors.accent,
+      color: colors.accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -35,22 +37,16 @@ class PipelinePanel extends StatelessWidget {
               ),
               if (run != null) ...[
                 const SizedBox(width: 8),
-                Text(
-                  'execução #${run.runNumber}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textMuted,
-                  ),
-                ),
+                Text('execução #${run.runNumber}', style: muted),
               ],
             ],
           ),
           const SizedBox(height: 4),
           Text(
-            _subtitle(run),
+            _subtitle(run, colors),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            style: muted.copyWith(fontSize: 12),
           ),
           const SizedBox(height: 14),
           ..._content(run),
@@ -59,11 +55,11 @@ class PipelinePanel extends StatelessWidget {
     );
   }
 
-  String _subtitle(WorkflowRun? run) {
+  String _subtitle(WorkflowRun? run, AppPalette colors) {
     if (run == null) {
       return 'Aguardando dados da API do GitHub';
     }
-    final look = RunStateLook.of(run.state);
+    final look = RunStateLook.of(run.state, colors);
     return '${look.label} · ${run.title}';
   }
 
@@ -104,9 +100,10 @@ class _JobTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final look = RunStateLook.of(job.state);
+    final colors = context.colors;
+    final look = RunStateLook.of(job.state, colors);
     return Material(
-      color: AppColors.surfaceAlt,
+      color: colors.surfaceAlt,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -145,7 +142,6 @@ class _JobTile extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -153,20 +149,13 @@ class _JobTile extends StatelessWidget {
                       _detail(look),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                      ),
+                      style: TextStyle(fontSize: 12, color: colors.textMuted),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.open_in_new,
-                size: 16,
-                color: AppColors.textMuted,
-              ),
+              Icon(Icons.open_in_new, size: 16, color: colors.textMuted),
             ],
           ),
         ),
@@ -201,7 +190,7 @@ class _EmptyMessage extends StatelessWidget {
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+        style: TextStyle(fontSize: 13, color: context.colors.textMuted),
       ),
     );
   }
