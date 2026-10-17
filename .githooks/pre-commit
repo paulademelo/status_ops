@@ -14,7 +14,7 @@ echo -e "\n${BLUE}🔍 [Pre-commit Hook] Iniciando validações de qualidade do 
 # ------------------------------------------------------------------------------
 STAGED_DART_FILES=$(git diff --cached --name-only --diff-filter=d | grep -E '\.dart$')
 
-if [ -z $STAGED_DART_FILES ]; then
+if [ -z "$STAGED_DART_FILES" ]; then
   echo -e "${YELLOW}ℹ Nenhum arquivo Dart modificado para validar.${NC}"
   exit 0
 fi

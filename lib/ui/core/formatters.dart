@@ -31,10 +31,14 @@ String formatDuration(Duration duration) {
   return '${seconds}s';
 }
 
-/// Horário local no formato `HH:mm`.
-String formatClock(DateTime moment) {
+/// Horário local no formato `HH:mm` (ou `HH:mm:ss`).
+String formatClock(DateTime moment, {bool withSeconds = false}) {
   final local = moment.toLocal();
   final hh = local.hour.toString().padLeft(2, '0');
   final mm = local.minute.toString().padLeft(2, '0');
-  return '$hh:$mm';
+  if (!withSeconds) {
+    return '$hh:$mm';
+  }
+  final ss = local.second.toString().padLeft(2, '0');
+  return '$hh:$mm:$ss';
 }

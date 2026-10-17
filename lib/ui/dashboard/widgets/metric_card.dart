@@ -23,6 +23,7 @@ class MetricCard extends StatelessWidget {
     required this.color,
     required this.values,
     required this.footer,
+    this.extra,
   });
 
   final String title;
@@ -30,6 +31,9 @@ class MetricCard extends StatelessWidget {
   final Color color;
   final List<MetricValue> values;
   final String footer;
+
+  /// Widget opcional exibido entre os valores e o rodapé.
+  final Widget? extra;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +66,7 @@ class MetricCard extends StatelessWidget {
                 ),
             ],
           ),
+          if (extra != null) ...[const SizedBox(height: 16), extra!],
           const SizedBox(height: 16),
           Text(
             footer,

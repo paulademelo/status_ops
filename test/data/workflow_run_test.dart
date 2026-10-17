@@ -17,6 +17,7 @@ Map<String, dynamic> runJson({
   'created_at': '2026-10-17T12:00:00Z',
   'run_started_at': '2026-10-17T12:00:05Z',
   'updated_at': '2026-10-17T12:01:45Z',
+  'html_url': 'https://github.com/paulademelo/status_ops/actions/runs/99',
 };
 
 void main() {
@@ -29,6 +30,7 @@ void main() {
     expect(run.shortSha, '1234567');
     expect(run.state, RunState.success);
     expect(run.duration, const Duration(minutes: 1, seconds: 40));
+    expect(run.htmlUrl, endsWith('/actions/runs/99'));
   });
 
   test('mapeia status e conclusion para RunState', () {
@@ -43,6 +45,7 @@ void main() {
     expect(stateOf('completed', 'failure'), RunState.failure);
     expect(stateOf('completed', 'timed_out'), RunState.failure);
     expect(stateOf('completed', 'cancelled'), RunState.cancelled);
+    expect(stateOf('completed', 'skipped'), RunState.skipped);
   });
 
   test('execução ativa não tem duração', () {

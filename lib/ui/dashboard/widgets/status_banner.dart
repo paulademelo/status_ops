@@ -6,64 +6,47 @@ import 'package:status_ops/ui/core/theme.dart';
 import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
 import 'package:status_ops/ui/dashboard/widgets/glow_card.dart';
 
-/// Banner principal: ambiente ONLINE + dados do build + avisos ao vivo.
+/// Banner principal: status do ambiente + dados do build + avisos ao vivo.
+///
+/// Em telas largas fica compacto (status à esquerda, detalhes à direita).
 class StatusBanner extends StatelessWidget {
   const StatusBanner({super.key, required this.viewModel});
 
   final DashboardViewModel viewModel;
 
+  static const double _wideBreakpoint = 640;
+
   @override
   Widget build(BuildContext context) {
-    final buildInfo = viewModel.buildInfo;
+    final isProduction = viewModel.buildInfo.isFromPipeline;
     return GlowCard(
-      color: AppColors.green,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      color: isProduction ? AppColors.green : AppColors.orange,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Status do Ambiente de Produção',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: AppColors.textMuted),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'ONLINE',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 34,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 4,
-              color: AppColors.green,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            statusMessage,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _InfoChip(icon: Icons.commit, label: buildInfo.commitSha),
-              _InfoChip(
-                icon: Icons.person_outline,
-                label: buildInfo.commitAuthor,
-              ),
-              _InfoChip(icon: Icons.schedule, label: buildInfo.buildDate),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            buildInfo.commitMessage,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < _wideBreakpoint) {
+                return Column(
+                  children: [
+                    _Headline(isProduction: isProduction, centered: true),
+                    const SizedBox(height: 16),
+                    _BuildDetails(viewModel: viewModel, centered: true),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: _Headline(isProduction: isProduction),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(flex: 3, child: _BuildDetails(viewModel: viewModel)),
+                ],
+              );
+            },
           ),
           ..._liveCallout(),
         ],
@@ -78,7 +61,7 @@ class StatusBanner extends StatelessWidget {
     if (status == PanelStatus.deploying) {
       final run = viewModel.activeRun!;
       return [
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         _Callout(
           icon: Icons.sync,
           color: AppColors.orange,
@@ -92,17 +75,16 @@ class StatusBanner extends StatelessWidget {
 
     if (status == PanelStatus.newVersionAvailable) {
       final run = viewModel.latestSuccessfulRun!;
+      final next = viewModel.isReloadScheduled
+          ? 'Atualizando a página em instantes…'
+          : 'Recarregue a página para ver.';
       return [
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         _Callout(
           icon: Icons.new_releases_outlined,
           color: AppColors.cyan,
           title: 'Nova versão publicada!',
-          message: viewModel.isReloadScheduled
-              ? 'O commit ${run.shortSha} já está no ar. Atualizando a '
-                    'página em instantes…'
-              : 'O commit ${run.shortSha} já está no ar. Recarregue a '
-                    'página para ver.',
+          message: 'O commit ${run.shortSha} já está no ar. $next',
           action: TextButton.icon(
             onPressed: viewModel.reloadNow,
             icon: const Icon(Icons.refresh, size: 18),
@@ -114,6 +96,93 @@ class StatusBanner extends StatelessWidget {
     }
 
     return const [];
+  }
+}
+
+/// "ONLINE" (publicado pelo pipeline) ou "LOCAL" (flutter run).
+class _Headline extends StatelessWidget {
+  const _Headline({required this.isProduction, this.centered = false});
+
+  final bool isProduction;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isProduction ? AppColors.green : AppColors.orange;
+    final align = centered ? TextAlign.center : TextAlign.start;
+    return Column(
+      crossAxisAlignment: centered
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        Text(
+          isProduction ? 'Ambiente de Produção' : 'Ambiente Local',
+          textAlign: align,
+          style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          isProduction ? 'ONLINE' : 'LOCAL',
+          textAlign: align,
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 4,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          isProduction
+              ? statusMessage
+              : 'Rodando com flutter run: os dados do build só existem '
+                    'quando o pipeline publica.',
+          textAlign: align,
+          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+        ),
+      ],
+    );
+  }
+}
+
+/// Commit, autor, data e mensagem do build aberto no navegador.
+class _BuildDetails extends StatelessWidget {
+  const _BuildDetails({required this.viewModel, this.centered = false});
+
+  final DashboardViewModel viewModel;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    final buildInfo = viewModel.buildInfo;
+    return Column(
+      crossAxisAlignment: centered
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.end,
+      children: [
+        Wrap(
+          alignment: centered ? WrapAlignment.center : WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _InfoChip(icon: Icons.commit, label: buildInfo.commitSha),
+            _InfoChip(
+              icon: Icons.person_outline,
+              label: buildInfo.commitAuthor,
+            ),
+            _InfoChip(icon: Icons.schedule, label: buildInfo.buildDate),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          buildInfo.commitMessage,
+          textAlign: centered ? TextAlign.center : TextAlign.end,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+        ),
+      ],
+    );
   }
 }
 

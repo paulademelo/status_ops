@@ -2,11 +2,18 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:status_ops/data/models/pipeline_job.dart';
 import 'package:status_ops/data/models/runs_page.dart';
 import 'package:status_ops/data/models/workflow_run.dart';
 
+/// Fonte dos dados ao vivo do pipeline. Nos testes, usamos um fake.
 abstract interface class PipelineRepository {
+  /// Execuções mais recentes (da mais nova para a mais antiga) e o saldo
+  /// de requisições da API.
   Future<RunsPage> fetchRecentRuns();
+
+  /// Jobs (e seus passos) de uma execução.
+  Future<List<PipelineJob>> fetchJobs(int runId);
 }
 
 class PipelineException implements Exception {
@@ -25,6 +32,9 @@ class RateLimitException extends PipelineException {
   final DateTime resetAt;
 }
 
+/// Implementação real, usando a API REST do GitHub Actions.
+///
+/// Sem token de propósito: tudo que vai num build web é público.
 class GitHubPipelineRepository implements PipelineRepository {
   GitHubPipelineRepository({
     required this.repository,
@@ -43,9 +53,33 @@ class GitHubPipelineRepository implements PipelineRepository {
 
   @override
   Future<RunsPage> fetchRecentRuns() async {
-    final uri = Uri.https('api.github.com', '/repos/$repository/actions/runs', {
+    final response = await _get('/repos/$repository/actions/runs', {
       'branch': branch,
       'per_page': '$perPage',
+    });
+    final runs = _parseList(
+      response.body,
+      'workflow_runs',
+      WorkflowRun.fromJson,
+    );
+    return RunsPage(
+      runs: runs,
+      rateLimit: RateLimit.fromHeaders(response.headers),
+    );
+  }
+
+  @override
+  Future<List<PipelineJob>> fetchJobs(int runId) async {
+    final response = await _get('/repos/$repository/actions/runs/$runId/jobs', {
+      'per_page': '30',
+    });
+    return _parseList(response.body, 'jobs', PipelineJob.fromJson);
+  }
+
+  /// GET na API do GitHub, transformando falhas em [PipelineException].
+  Future<http.Response> _get(String path, Map<String, String> query) async {
+    final uri = Uri.https('api.github.com', path, {
+      ...query,
       // A API manda o navegador guardar a resposta por 60 s. Um valor
       // diferente a cada chamada ("cache buster") garante dados frescos.
       't': '${_clock().millisecondsSinceEpoch}',
@@ -62,10 +96,7 @@ class GitHubPipelineRepository implements PipelineRepository {
     }
 
     if (response.statusCode == 200) {
-      return RunsPage(
-        runs: _parseRuns(response.body),
-        rateLimit: RateLimit.fromHeaders(response.headers),
-      );
+      return response;
     }
     if (_isRateLimited(response)) {
       throw RateLimitException(resetAt: _resetTime(response));
@@ -80,14 +111,16 @@ class GitHubPipelineRepository implements PipelineRepository {
     );
   }
 
-  List<WorkflowRun> _parseRuns(String body) {
+  /// Lê a lista `json[key]` e converte cada item com [fromJson].
+  List<T> _parseList<T>(
+    String body,
+    String key,
+    T Function(Map<String, dynamic> json) fromJson,
+  ) {
     try {
       final json = jsonDecode(body) as Map<String, dynamic>;
-      final runs = json['workflow_runs'] as List<dynamic>? ?? const [];
-      return runs
-          .whereType<Map<String, dynamic>>()
-          .map(WorkflowRun.fromJson)
-          .toList();
+      final items = json[key] as List<dynamic>? ?? const [];
+      return items.whereType<Map<String, dynamic>>().map(fromJson).toList();
     } on FormatException {
       throw const PipelineException('Resposta inesperada da API do GitHub.');
     } on TypeError {

@@ -1,5 +1,27 @@
-/// Situação de uma execução, simplificada para o painel.
-enum RunState { queued, inProgress, success, failure, cancelled, unknown }
+/// Situação de uma execução (ou de um job), simplificada para o painel.
+enum RunState {
+  queued,
+  inProgress,
+  success,
+  failure,
+  cancelled,
+  skipped,
+  unknown,
+}
+
+/// Converte os campos `status` + `conclusion` da API em um [RunState].
+RunState runStateOf(String status, String? conclusion) {
+  if (status != 'completed') {
+    return status == 'in_progress' ? RunState.inProgress : RunState.queued;
+  }
+  return switch (conclusion) {
+    'success' => RunState.success,
+    'failure' || 'timed_out' || 'startup_failure' => RunState.failure,
+    'cancelled' => RunState.cancelled,
+    'skipped' => RunState.skipped,
+    _ => RunState.unknown,
+  };
+}
 
 /// Uma execução do workflow, como vem de
 /// `GET /repos/{dono}/{repo}/actions/runs`.
@@ -16,6 +38,7 @@ class WorkflowRun {
     required this.createdAt,
     required this.updatedAt,
     this.startedAt,
+    this.htmlUrl = '',
   });
 
   factory WorkflowRun.fromJson(Map<String, dynamic> json) {
@@ -32,6 +55,7 @@ class WorkflowRun {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       startedAt: DateTime.tryParse(json['run_started_at'] as String? ?? ''),
+      htmlUrl: json['html_url'] as String? ?? '',
     );
   }
 
@@ -53,17 +77,10 @@ class WorkflowRun {
   final DateTime updatedAt;
   final DateTime? startedAt;
 
-  RunState get state {
-    if (status != 'completed') {
-      return status == 'in_progress' ? RunState.inProgress : RunState.queued;
-    }
-    return switch (conclusion) {
-      'success' => RunState.success,
-      'failure' || 'timed_out' || 'startup_failure' => RunState.failure,
-      'cancelled' || 'skipped' => RunState.cancelled,
-      _ => RunState.unknown,
-    };
-  }
+  /// Página da execução no GitHub Actions.
+  final String htmlUrl;
+
+  RunState get state => runStateOf(status, conclusion);
 
   /// Ainda está na fila ou rodando.
   bool get isActive => state == RunState.queued || state == RunState.inProgress;

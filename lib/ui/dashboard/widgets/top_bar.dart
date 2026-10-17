@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:status_ops/ui/core/theme.dart';
 
 class TopBar extends StatelessWidget {
-  const TopBar({super.key});
+  const TopBar({super.key, required this.isProduction});
+
+  /// `false` quando o app roda localmente (fora do pipeline).
+  final bool isProduction;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +46,7 @@ class TopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const _EnvironmentChip(),
+          _EnvironmentChip(isProduction: isProduction),
         ],
       ),
     );
@@ -51,28 +54,31 @@ class TopBar extends StatelessWidget {
 }
 
 class _EnvironmentChip extends StatelessWidget {
-  const _EnvironmentChip();
+  const _EnvironmentChip({required this.isProduction});
+
+  final bool isProduction;
 
   @override
   Widget build(BuildContext context) {
+    final color = isProduction ? AppColors.green : AppColors.orange;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.green.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.green.withValues(alpha: 0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.circle, size: 8, color: AppColors.green),
-          SizedBox(width: 8),
+          Icon(Icons.circle, size: 8, color: color),
+          const SizedBox(width: 8),
           Text(
-            'produção',
+            isProduction ? 'produção' : 'local',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: AppColors.green,
+              color: color,
             ),
           ),
         ],

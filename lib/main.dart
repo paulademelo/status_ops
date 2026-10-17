@@ -5,6 +5,7 @@ import 'package:status_ops/data/build_info.dart';
 import 'package:status_ops/data/pipeline_repository.dart';
 import 'package:status_ops/ui/core/page_reloader.dart';
 import 'package:status_ops/ui/core/theme.dart';
+import 'package:status_ops/ui/core/url_opener.dart';
 import 'package:status_ops/ui/dashboard/dashboard_screen.dart';
 import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
 
@@ -17,6 +18,8 @@ void main() {
     buildInfo: BuildInfo.fromEnvironment(),
     // Quando sai uma versão nova, mostra o aviso e recarrega sozinho.
     reloadPage: reloadPage,
+    // Clicar numa execução abre a página dela no GitHub Actions.
+    openUrl: openUrl,
     autoReloadDelay: const Duration(seconds: 8),
   )..start();
 

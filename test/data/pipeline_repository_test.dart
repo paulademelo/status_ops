@@ -33,6 +33,12 @@ GitHubPipelineRepository repositoryWith(MockClientHandler handler) {
 }
 
 void main() {
+  group('Execuções', _execucoesTests);
+  group('Jobs', _jobsTests);
+  group('Erros', _errosTests);
+}
+
+void _execucoesTests() {
   test('chama o endpoint certo e converte as execuções', () async {
     late Uri calledUri;
     final repository = repositoryWith((request) async {
@@ -87,7 +93,41 @@ void main() {
 
     expect(page.rateLimit, isNull);
   });
+}
 
+void _jobsTests() {
+  test('busca os jobs de uma execução', () async {
+    late Uri calledUri;
+    final repository = repositoryWith((request) async {
+      calledUri = request.url;
+      return http.Response(
+        jsonEncode({
+          'total_count': 1,
+          'jobs': [
+            {
+              'id': 5,
+              'name': 'Build web',
+              'status': 'completed',
+              'conclusion': 'success',
+              'steps': <Object>[],
+            },
+          ],
+        }),
+        200,
+      );
+    });
+
+    final jobs = await repository.fetchJobs(42);
+
+    expect(
+      calledUri.path,
+      '/repos/paulademelo/status_ops/actions/runs/42/jobs',
+    );
+    expect(jobs.single.name, 'Build web');
+  });
+}
+
+void _errosTests() {
   test(
     'limite da API vira RateLimitException com o horário de reset',
     () async {

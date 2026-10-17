@@ -7,6 +7,7 @@ import 'package:status_ops/ui/dashboard/dashboard_view_model.dart';
 import 'package:status_ops/ui/dashboard/widgets/metric_card.dart';
 import 'package:status_ops/ui/dashboard/widgets/pipeline_panel.dart';
 import 'package:status_ops/ui/dashboard/widgets/recent_runs_panel.dart';
+import 'package:status_ops/ui/dashboard/widgets/run_trend.dart';
 import 'package:status_ops/ui/dashboard/widgets/status_banner.dart';
 import 'package:status_ops/ui/dashboard/widgets/top_bar.dart';
 
@@ -32,7 +33,7 @@ class DashboardScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const TopBar(),
+            TopBar(isProduction: viewModel.buildInfo.isFromPipeline),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
@@ -77,7 +78,7 @@ class DashboardScreen extends StatelessWidget {
           isWide: isWide,
           flexes: const [2, 3],
           children: [
-            PipelinePanel(buildInfo: buildInfo),
+            PipelinePanel(viewModel: viewModel),
             RecentRunsPanel(viewModel: viewModel),
           ],
         ),
@@ -119,6 +120,7 @@ class DashboardScreen extends StatelessWidget {
             color: AppColors.textPrimary,
           ),
         ],
+        extra: viewModel.runs.isEmpty ? null : RunTrend(runs: viewModel.trend),
         footer: viewModel.hasLoaded
             ? 'Ao vivo · últimas execuções na main'
             : 'Aguardando dados da API do GitHub',

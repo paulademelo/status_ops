@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:status_ops/data/build_info.dart';
+import 'package:status_ops/data/models/pipeline_job.dart';
 import 'package:status_ops/data/models/runs_page.dart';
 import 'package:status_ops/data/models/workflow_run.dart';
 import 'package:status_ops/data/pipeline_repository.dart';
@@ -22,7 +23,12 @@ enum PanelStatus {
 /// Função que recarrega a página (no navegador) ou não faz nada (testes).
 typedef PageReloader = Future<void> Function();
 
+/// Função que abre um link em outra aba (no navegador).
+typedef UrlOpener = void Function(String url);
+
 Future<void> _doNothing() => Future.value();
+
+void _ignoreUrl(String url) {}
 
 /// Estado e regras do painel.
 ///
@@ -34,16 +40,19 @@ class DashboardViewModel extends ChangeNotifier {
     required this._repository,
     required this.buildInfo,
     PageReloader? reloadPage,
+    UrlOpener? openUrl,
     this.autoReloadDelay,
     DateTime Function()? clock,
   }) : _reloadPage = reloadPage ?? _doNothing,
+       _openUrl = openUrl ?? _ignoreUrl,
        _clock = clock ?? DateTime.now;
 
   /// Intervalo mínimo com o pipeline parado.
   static const Duration idleInterval = Duration(seconds: 45);
 
   /// Com um deploy rodando, consulta bem mais rápido para acompanhar.
-  static const Duration activeInterval = Duration(seconds: 15);
+  /// (Cada consulta custa 2 requisições: execuções + jobs.)
+  static const Duration activeInterval = Duration(seconds: 20);
 
   /// Depois de um erro comum, tenta de novo em 1 minuto.
   static const Duration errorInterval = Duration(minutes: 1);
@@ -53,6 +62,7 @@ class DashboardViewModel extends ChangeNotifier {
 
   final PipelineRepository _repository;
   final PageReloader _reloadPage;
+  final UrlOpener _openUrl;
   final DateTime Function() _clock;
 
   /// Dados "congelados" na compilação (commit, testes, versão).
@@ -63,6 +73,9 @@ class DashboardViewModel extends ChangeNotifier {
   final Duration? autoReloadDelay;
 
   List<WorkflowRun> _runs = const [];
+  List<PipelineJob> _jobs = const [];
+  int? _jobsRunId;
+  bool _jobsAreFinal = false;
   RateLimit? _rateLimit;
   bool _isLoading = false;
   bool _hasLoaded = false;
@@ -71,6 +84,7 @@ class DashboardViewModel extends ChangeNotifier {
   String? _errorMessage;
   DateTime? _lastUpdated;
   DateTime? _rateLimitResetAt;
+  DateTime? _nextRefreshAt;
   Timer? _refreshTimer;
   Timer? _reloadTimer;
   bool _disposed = false;
@@ -80,6 +94,9 @@ class DashboardViewModel extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   List<WorkflowRun> get runs => _runs;
+
+  /// Jobs de [focusRun] (vazio enquanto ainda não existem).
+  List<PipelineJob> get jobs => _jobs;
 
   /// Saldo de requisições da API na última resposta.
   RateLimit? get rateLimit => _rateLimit;
@@ -93,6 +110,9 @@ class DashboardViewModel extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   DateTime? get lastUpdated => _lastUpdated;
+
+  /// Quando a próxima consulta automática vai acontecer.
+  DateTime? get nextRefreshAt => _nextRefreshAt;
 
   /// A página vai se recarregar sozinha em instantes.
   bool get isReloadScheduled => _reloadScheduled;
@@ -126,6 +146,13 @@ class DashboardViewModel extends ChangeNotifier {
     unawaited(_loadAndSchedule());
   }
 
+  /// Abre uma execução ou job no GitHub Actions.
+  void openLink(String url) {
+    if (url.isNotEmpty) {
+      _openUrl(url);
+    }
+  }
+
   /// Recarrega a página agora (botão "Recarregar página").
   Future<void> reloadNow() {
     _reloadTimer?.cancel();
@@ -142,7 +169,12 @@ class DashboardViewModel extends ChangeNotifier {
 
     try {
       final page = await _repository.fetchRecentRuns();
+      final focus = _focusOf(page.runs);
+      final jobs = await _jobsFor(focus);
       _runs = page.runs;
+      _jobs = jobs;
+      _jobsRunId = focus?.id;
+      _jobsAreFinal = focus != null && !focus.isActive;
       _rateLimit = page.rateLimit;
       _hasLoaded = true;
       _errorMessage = null;
@@ -168,10 +200,22 @@ class DashboardViewModel extends ChangeNotifier {
     if (_disposed || _paused) {
       return;
     }
-    _refreshTimer = Timer(
-      nextRefreshDelay,
-      () => unawaited(_loadAndSchedule()),
-    );
+    final delay = nextRefreshDelay;
+    _nextRefreshAt = _clock().add(delay);
+    _notify();
+    _refreshTimer = Timer(delay, () => unawaited(_loadAndSchedule()));
+  }
+
+  /// Busca os jobs da execução em foco. Execuções já terminadas não mudam
+  /// mais, então os jobs delas são buscados uma vez só (economiza a API).
+  Future<List<PipelineJob>> _jobsFor(WorkflowRun? run) {
+    if (run == null) {
+      return Future.value(const []);
+    }
+    if (run.id == _jobsRunId && _jobsAreFinal) {
+      return Future.value(_jobs);
+    }
+    return _repository.fetchJobs(run.id);
   }
 
   /// Saiu versão nova? Agenda o recarregamento (uma vez só).
@@ -254,6 +298,13 @@ class DashboardViewModel extends ChangeNotifier {
   /// Execução na fila ou rodando agora (a mais recente).
   WorkflowRun? get activeRun => _firstWhere((run) => run.isActive);
 
+  /// Execução mostrada no painel de etapas: a que está rodando ou, se
+  /// nenhuma estiver, a mais recente.
+  WorkflowRun? get focusRun => _focusOf(_runs);
+
+  /// Execuções da mais antiga para a mais nova (para a tendência).
+  List<WorkflowRun> get trend => _runs.reversed.toList();
+
   /// Último deploy que terminou com sucesso.
   WorkflowRun? get latestSuccessfulRun =>
       _firstWhere((run) => run.state == RunState.success);
@@ -314,6 +365,15 @@ class DashboardViewModel extends ChangeNotifier {
       return PanelStatus.newVersionAvailable;
     }
     return PanelStatus.online;
+  }
+
+  static WorkflowRun? _focusOf(List<WorkflowRun> runs) {
+    for (final run in runs) {
+      if (run.isActive) {
+        return run;
+      }
+    }
+    return runs.isEmpty ? null : runs.first;
   }
 
   WorkflowRun? _firstWhere(bool Function(WorkflowRun run) test) {

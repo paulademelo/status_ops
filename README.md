@@ -46,6 +46,9 @@ No código, `lib/build_info.dart` lê esses valores com `String.fromEnvironment`
 Além dos dados "congelados" no build, o painel consulta a API pública do GitHub enquanto está aberto (`GET /repos/{dono}/{repo}/actions/runs`):
 
 - lista as últimas execuções da `main` e marca a que publicou a página aberta (**no ar**);
+- mostra os **jobs da execução em foco ao vivo**: durante um deploy dá para ver qual passo está rodando ("Rodando: 🧪 Rodar testes · passo 6 de 9");
+- clicar numa execução ou job abre a página dele no GitHub Actions;
+- mostra a **tendência** das últimas execuções (bolinhas verdes/laranja) além da taxa de sucesso;
 - calcula a taxa de sucesso e a duração média do pipeline;
 - mostra **"Deploy em andamento"** quando há uma execução rodando e **"Nova versão publicada"** quando um deploy mais novo termina;
 - atualiza sozinho, sem F5: a cada 15 s durante um deploy e, com o pipeline parado, divide o saldo de requisições que sobrou até o reset da API (60/hora sem token), nunca abaixo de 45 s;
